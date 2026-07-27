@@ -111,4 +111,4 @@ clean up if you want to contribute that.
 
 ## License
 
-*(Add your chosen license here before publishing.)*
+GPL-3.0 license
