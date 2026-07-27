@@ -1,0 +1,50 @@
+(function(){
+  if(window.__V05418ED_SPLIT_PERIOD_ADMIN_DISPLAY__) return;
+  window.__V05418ED_SPLIT_PERIOD_ADMIN_DISPLAY__ = true;
+  function clean(v){ return String(v == null ? '' : v).trim(); }
+  function norm(v){ return clean(v).toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim(); }
+  function esc(v){ try{ if(typeof window.esc === 'function') return window.esc(v); }catch(e){} return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c;}); }
+  function num(v){ if(v === 0) return 0; if(v == null || v === '') return null; var n = Number(v); return isFinite(n) ? n : null; }
+  function fmt(m){ m = Number(m); if(!isFinite(m)) return ''; var h=Math.floor(m/60), mi=m%60, ap=h>=12?'PM':'AM', hh=h%12; if(!hh)hh=12; return hh+':'+String(mi).padStart(2,'0')+' '+ap; }
+  function range(s,e){ return fmt(s)+' - '+fmt(e); }
+  function splitLabel(o){ o=o||{}; var cap=clean(o.splitWindowCaption||o.splitCaption||''); var raw=clean(o.splitWindowLabel||o.splitLabel||o.splitTimeLabel||o.supportWindow||o.timeWindow||''); if(cap&&raw)return cap+' · '+raw; if(cap)return cap; if(raw) return raw; var s=num(o.splitStartMinutes), e=num(o.splitEndMinutes); return (s!=null&&e!=null&&e>s)?range(s,e):''; }
+  function itemMap(data){ var map=Object.create(null); (data.items||[]).forEach(function(it){ [it.key,it.label,it.period,it.item,it.title,it.displayName].forEach(function(k){ k=clean(k); if(k) map[norm(k)] = it; }); }); return map; }
+  function addRowTimes(data){ data=data||{}; var map=itemMap(data); function add(r){ r=r||{}; var it=map[norm(r.period||r.label||r.title||r.item)]; if(!it) return r; var s=num(it.startMinutes), e=num(it.endMinutes); if(s!=null&&e!=null&&e>s){ r.startMinutes=s; r.endMinutes=e; r.timeLabel=r.timeLabel||range(s,e); } return r; } (data.staffSchedules||[]).forEach(function(sr){ (sr.rows||[]).forEach(add); }); (data.studentSchedules||[]).forEach(function(st){ (st.rows||[]).forEach(add); }); return data; }
+  function mergeIntervals(arr){ arr=(arr||[]).filter(function(x){return x&&x.start!=null&&x.end!=null&&x.end>x.start;}).sort(function(a,b){return a.start-b.start||a.end-b.end;}); var out=[]; arr.forEach(function(x){ if(!out.length||x.start>out[out.length-1].end) out.push({start:x.start,end:x.end}); else out[out.length-1].end=Math.max(out[out.length-1].end,x.end); }); return out; }
+  function freeSegments(row,busy){ var ps=num(row&&row.startMinutes), pe=num(row&&row.endMinutes); if(ps==null||pe==null||pe<=ps) return []; var cur=ps,out=[]; mergeIntervals(busy).forEach(function(b){ if(b.start>cur) out.push({start:cur,end:b.start}); cur=Math.max(cur,b.end); }); if(cur<pe) out.push({start:cur,end:pe}); return out.filter(function(x){return x.end>x.start;}); }
+  var baseStudentAnchor = window.studentAnchor;
+  window.studentAnchor = function(o){
+    o=o||{}; var sp=splitLabel(o); var name=clean(o.displayName||o.baseName||o.name||o.student||String(o||'')); if(sp && name.indexOf(sp)<0) name += ' ('+sp+')'; var copy={}; try{ Object.keys(o).forEach(function(k){copy[k]=o[k];}); }catch(e){} copy.name=name; copy.student=name; if(typeof baseStudentAnchor === 'function') return baseStudentAnchor(copy); return esc(name);
+  };
+  function roomSort(v){ try{ if(typeof window.roomSortKey === 'function') return window.roomSortKey(v); }catch(e){} return String(v||''); }
+  function groupedStudents(students,fallbackLocation){ students=students||[]; if(!students.length) return ''; var groups=Object.create(null), order=[]; students.forEach(function(st){ var loc=clean((st&&st.location)||fallbackLocation||''); var key=loc||'__no_room__'; if(!groups[key]){ groups[key]={key:key,location:loc,students:[]}; order.push(groups[key]); } groups[key].students.push(st); }); order.sort(function(a,b){return roomSort(a.location).localeCompare(roomSort(b.location));}); return order.map(function(g){ var names=g.students.map(window.studentAnchor).join('<br>'); return '<div class="studentRoomGroup">'+names+(g.location?'<div class="dashMeta">'+esc(g.location)+'</div>':'')+'</div>'; }).join(''); }
+  function renderRest(ev){ try{ if(typeof window.renderRestEvent === 'function') return window.renderRestEvent(ev); }catch(e){} ev=ev||{}; return '<div class="restEvent">'+esc([ev.time, ev.type].filter(Boolean).join(' · '))+'</div>'; }
+  function freeText(r,data){ try{ if(typeof window.freeStaffHtml === 'function') return window.freeStaffHtml(r,data); }catch(e){} var loc=clean((data&&data.unassignedSupportLocation)||''); return '<span class="empty">'+esc(loc?('Support '+loc):'Free')+'</span>'; }
+  function splitStaffCell(r,data){
+    r=r||{}; var students=r.students||[], restEvents=r.restEvents||[], rest=restEvents.map(renderRest).join('');
+    if(r.hideAssignmentForDesignatedRest) return rest;
+    var splitStudents=students.filter(function(st){return !!splitLabel(st);});
+    var allSplit=students.length && splitStudents.length===students.length && num(r.startMinutes)!=null && num(r.endMinutes)!=null;
+    if(allSplit){
+      var busy=[];
+      var support=splitStudents.map(function(st){ var s=num(st.splitStartMinutes), e=num(st.splitEndMinutes); if(s==null||e==null||e<=s) return ''; busy.push({start:s,end:e}); var loc=clean(st.location||r.location||''); return '<div class="studentRoomGroup splitSupportBlock"><b>'+esc(range(s,e))+'</b><br>'+window.studentAnchor(st)+(loc?'<div class="dashMeta">'+esc(loc)+'</div>':'')+'</div>'; }).join('');
+      var free = rest ? '' : freeSegments(r,busy).map(function(f){return '<div class="free splitFreeBlock"><b>'+esc(range(f.start,f.end))+'</b><br>Free</div>';}).join('');
+      return support + free + rest;
+    }
+    var studentsHtml=students.length?groupedStudents(students,r.location):'';
+    return (studentsHtml || (!rest ? freeText(r,data) : '')) + rest;
+  }
+  function rowMap(rows){ var map=Object.create(null); (rows||[]).forEach(function(r){ var keys=[r.period,r.label,r.title,r.item].map(clean).filter(Boolean); keys.forEach(function(k){map[norm(k)]=r;}); }); return map; }
+  function activePage(){ var el=document.querySelector('.section.active'); return el?el.id:''; }
+  function setHtml(id,html){ var el=document.getElementById(id); if(el) el.innerHTML=html; }
+  function itemTitle(it){ return clean((it&&typeof it==='object')?(it.title||it.displayName||it.label||it.key):it); }
+  function itemKey(it){ return clean((it&&typeof it==='object')?(it.label||it.key||it.period||it.item||it.title):it); }
+  function itemsFrom(data,rows){ var items=(data&&data.items)||[]; if(items.length) return items; var first=rows&&rows[0]&&rows[0].rows||[]; return first.map(function(r){return {label:r.period,title:r.period};}); }
+  function renderStaffSchedulesED(){ if(typeof window.loadStaffSchedulesAutoV05418Test==='function'){window.loadStaffSchedulesAutoV05418Test();return;} var data=addRowTimes(window.scheduleViewsData||{}); var rows=data.staffSchedules||[], items=itemsFrom(data,rows); if(!rows.length){ setHtml('staffSchedulesTable','<p class="muted">No staff schedules.</p>'); return; } var th=items.map(function(it){return '<th>'+esc(itemTitle(it))+'</th>';}).join(''); var body=rows.map(function(s){ var map=rowMap(s.rows||[]); return '<tr><td>'+esc(s.staff||s.name||'')+'</td>'+items.map(function(it){ var r=map[norm(itemKey(it))]||map[norm(itemTitle(it))]||{}; var restEvents=r.restEvents||[]; var hasCover=restEvents.some(function(ev){return ev.role==='cover';}); var hasOwnRest=restEvents.some(function(ev){return ev.role==='break';}); var cellClass=hasCover?' class="coverCell"':(hasOwnRest?' class="restCell"':''); return '<td'+cellClass+'>'+splitStaffCell(r,data)+'</td>'; }).join('')+'</tr>'; }).join(''); setHtml('staffSchedulesTable','<table class="scheduleGridTable wide"><thead><tr><th>Staff</th>'+th+'</tr></thead><tbody>'+body+'</tbody></table>'); }
+  function renderStudentSchedulesED(){ var data=addRowTimes(window.scheduleViewsData||{}); var rows=data.studentSchedules||[], items=itemsFrom(data,rows); if(!rows.length){ setHtml('studentSchedulesTable','<p class="muted">No student schedules.</p>'); return; } var th=items.map(function(it){return '<th>'+esc(itemTitle(it))+'</th>';}).join(''); var body=rows.map(function(st){ var map=rowMap(st.rows||[]); return '<tr><td>'+window.studentAnchor({name:st.student||st.name,url:st.url})+'</td>'+items.map(function(it){ var r=map[norm(itemKey(it))]||map[norm(itemTitle(it))]||{}; var support=clean(r.support||r.supportType||''); var sp=splitLabel(r); if(sp&&support&&support.indexOf(sp)<0) support+=' ('+sp+')'; var location=clean(r.location||''); var noSupport=!support||/^(n\/?a|na|none|no support needed)$/i.test(support); var noLocation=!location||/^(n\/?a|na)$/i.test(location); var hasNeed=!noSupport&&!noLocation; var names=Array.isArray(r.twoToOneStaffNames)&&r.twoToOneStaffNames.length?r.twoToOneStaffNames.join(' / '):clean(r.staff||''); var top=names?esc(names):(r.allowedUnstaffed?'<span class="scheduleNoNeed">Allowed unstaffed (Optimization)</span>':(hasNeed?'<span class="scheduleNeed">Needs support - unassigned</span>':'<span class="scheduleNoNeed">No support needed</span>')); var meta=(location||support)?'<div class="dashMeta">'+esc([location,support].filter(Boolean).join(' · '))+'</div>':''; return '<td>'+top+meta+'</td>'; }).join('')+'</tr>'; }).join(''); setHtml('studentSchedulesTable','<table class="scheduleGridTable wide"><thead><tr><th>Student</th>'+th+'</tr></thead><tbody>'+body+'</tbody></table>'); }
+  var baseRender = window.renderScheduleViews;
+  window.renderStaffSchedules = renderStaffSchedulesED;
+  window.renderStudentSchedules = renderStudentSchedulesED;
+  window.renderScheduleViews = function(opts){ var page=(opts&&opts.page)||activePage(); if(page==='staffSchedules') return renderStaffSchedulesED(); if(page==='studentSchedules') return renderStudentSchedulesED(); if(typeof baseRender==='function') return baseRender.apply(this,arguments); };
+  try{ renderStaffSchedules=window.renderStaffSchedules; renderStudentSchedules=window.renderStudentSchedules; renderScheduleViews=window.renderScheduleViews; }catch(e){}
+})();

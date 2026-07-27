@@ -1,0 +1,23 @@
+{
+  "name": "support-schedules",
+  "version": "1.0.0",
+  "description": "Self-hosted day-of coverage scheduler for special education and student-support teams.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "check": "node --check src/server.js && node --check src/runtime/appsScriptRuntime.js && node --check src/runtime/googleServices.js && node --check src/runtime/redisSpreadsheet.js && node --check src/runtime/redisProperties.js && node --check src/redisClient.js && node --check tools/inventory.js",
+    "inventory": "node tools/inventory.js",
+    "smoke": "node tools/smoke-test.js"
+  },
+  "dependencies": {
+    "express": "4.19.2",
+    "compression": "1.7.4",
+    "redis": "4.7.0",
+    "nodemailer": "6.9.13",
+    "cookie-parser": "1.4.6",
+    "web-push": "3.6.7",
+    "pdfkit": "0.15.0"
+  }
+}

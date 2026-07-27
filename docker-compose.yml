@@ -1,0 +1,21 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      REDIS_URL: redis://redis:6379
+      GA_ACTIVE_SPREADSHEET_ID: default-school
+      GA_ACTIVE_USER_EMAIL: sitelead@example.org
+      EMAIL_TRANSPORT: json
+    depends_on:
+      - redis
+volumes:
+  redis-data:

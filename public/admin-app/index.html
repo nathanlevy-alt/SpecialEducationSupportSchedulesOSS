@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<title>Support Schedules Admin</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0f172a">
+<style>
+  :root{--blue:#2563eb;--blue-dark:#1e40af;--navy:#0f172a;--ink:#0f172a;--slate:#334155;--muted:#64748b;--faint:#94a3b8;--bg:#f8fafc;--card:#fff;--line:#e2e8f0;--line-soft:#eef2f7;--green:#0F8A69;--green-bg:#EAF7F1;--green-line:#bbf7d0;--amber:#d97706;--amber-bg:#fffbeb;--amber-line:#fde68a;--red:#dc2626;--red-bg:#fef2f2;--red-line:#fecaca;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent} html,body{margin:0;height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--ink)}
+  #app{display:flex;flex-direction:column;height:100dvh;overflow:hidden}.screen{display:none;flex-direction:column;height:100%;overflow:hidden}.screen.active{display:flex}.scroll-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 16px 22px}.safe-bottom{padding-bottom:env(safe-area-inset-bottom,0)}
+  #scr-signin{align-items:stretch;justify-content:flex-start;text-align:center;background:var(--bg)}.signin-hero{background:var(--navy);padding:calc(env(safe-area-inset-top,20px) + 38px) 24px 34px;display:flex;flex-direction:column;align-items:center;gap:14px;flex-shrink:0}.signin-icon{width:88px;height:88px;border-radius:24px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.45);border:1px solid rgba(255,255,255,.15)}.signin-icon img{width:100%;height:100%;display:block}#scr-signin h1{font-size:21px;margin:2px 0 0;color:#fff;letter-spacing:-.01em}.signin-sub{color:rgba(255,255,255,.78);font-size:14px;margin:0;max-width:310px;line-height:1.5}.signin-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}.signin-card{background:var(--card);border-radius:20px;padding:22px 20px;width:100%;max-width:330px;box-shadow:0 18px 40px rgba(15,23,42,.14);display:flex;flex-direction:column;gap:14px;align-items:center}.google-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:1px solid #d1d5db;border-radius:12px;padding:13px 22px;font-size:15px;font-weight:800;color:var(--ink);text-decoration:none;width:100%}.signin-checks{display:flex;flex-direction:column;gap:9px;align-items:flex-start;width:100%}.signin-check-row{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--slate);font-weight:700}.check-badge{flex:0 0 17px;width:17px;height:17px;border-radius:50%;background:var(--green-bg);color:var(--green);font-size:10px;font-weight:900;display:grid;place-items:center}.signin-err{color:var(--red);font-size:13px;margin:8px 0 0}
+#scr-lock{align-items:stretch;justify-content:center;text-align:center;background:var(--navy)}.lock-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;max-width:340px;margin:0 auto}.lock-logo{width:150px;height:auto;margin-bottom:26px}.lock-icon-wrap{width:76px;height:76px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);display:grid;place-items:center;margin-bottom:4px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}.lock-icon-wrap:active{background:rgba(255,255,255,.18);transform:scale(.96)}.lock-icon{width:34px;height:34px;color:#fff}.lock-sub{color:rgba(255,255,255,.72);font-size:14px;margin:-8px 0 6px}.lock-err{color:#fca5a5;font-size:13px;margin:4px 0 0;min-height:16px}
+  .topbar{padding:calc(env(safe-area-inset-top,20px) + 10px) 18px 12px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg)}.topbar h1{font-size:23px;margin:0;letter-spacing:-.015em;font-weight:850;color:var(--ink)}.school-chip{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 12px 8px 10px;font-size:12.5px;font-weight:800;color:var(--navy);box-shadow:0 1px 2px rgba(15,23,42,.04)}.school-chip svg{width:14px;height:14px;flex-shrink:0;color:var(--blue)}.top-action{border:1px solid var(--line);background:var(--card);color:var(--slate);height:34px;border-radius:999px;padding:0 13px;font-weight:800}.mode-switch{display:flex;align-items:center;background:#e2e8f0;border-radius:999px;padding:3px;gap:2px}.mode-switch button{border:0;border-radius:999px;padding:7px 10px;background:transparent;color:var(--muted);font-size:12px;font-weight:850}.mode-switch button.active{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(15,23,42,.12)}
+  .tabbar{display:flex;border-top:1px solid var(--line);background:rgba(248,250,252,.95);backdrop-filter:blur(10px);padding-top:7px;flex-shrink:0}.tab{flex:1;text-align:center;background:none;border:0;color:var(--faint);padding-bottom:4px;position:relative;transition:transform .1s cubic-bezier(.2,.8,.4,1);-webkit-tap-highlight-color:transparent}.tab:active{transform:scale(.92)}.tab.active{color:var(--blue)}.tab svg{width:22px;height:22px;display:block;margin:0 auto}.tab span{font-size:10px;margin-top:2px;display:block;font-weight:800}.tab-badge{position:absolute;top:0;right:calc(50% - 25px);min-width:18px;height:18px;border-radius:999px;background:var(--red);color:#fff;border:2px solid var(--bg);font-size:10px;line-height:14px;font-weight:950;display:grid;place-items:center;padding:0 4px}
+  .card{background:var(--card);border:1px solid var(--line-soft);border-radius:17px;padding:15px;margin-bottom:13px;box-shadow:0 1px 3px rgba(15,23,42,.04)}.card h3{margin:0 0 10px;font-size:14.5px;font-weight:850;color:var(--ink)}.subtle{color:var(--muted);font-size:12.5px;line-height:1.45}.small-title{font-size:11.5px;font-weight:850;text-transform:uppercase;letter-spacing:.045em;color:var(--muted);margin:16px 0 8px}.toolbar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.toolbar>*{min-width:0}.metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.metric{background:#f8fafc;border:1px solid var(--line-soft);border-radius:14px;padding:11px}.metric .num{font-size:23px;font-weight:900;line-height:1}.metric .label{font-size:11.5px;color:var(--muted);font-weight:800;margin-top:4px}.metric.green{background:var(--green-bg);border-color:var(--green-line)}.metric.amber{background:var(--amber-bg);border-color:var(--amber-line)}.metric.red{background:var(--red-bg);border-color:var(--red-line)}
+  .row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:13px}.row:last-child{border-bottom:0}.who{font-weight:850;color:var(--ink)}.what{color:var(--muted);text-align:right}.meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}.stack{display:flex;flex-direction:column;gap:2px;min-width:0}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:850;padding:3px 8px;border-radius:999px;white-space:nowrap}.pill.ok{background:var(--green-bg);color:var(--green)}.pill.warn{background:var(--amber-bg);color:var(--amber)}.pill.bad{background:var(--red-bg);color:var(--red)}.pill.neutral{background:#f1f5f9;color:var(--muted)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;border-radius:13px;border:0;font-size:14px;font-weight:850;letter-spacing:-.005em;padding:0 14px;transition:transform .1s cubic-bezier(.2,.8,.4,1),opacity .1s ease;-webkit-tap-highlight-color:transparent}.btn:active:not(:disabled){transform:scale(.96);opacity:.85}.btn.full{width:100%;margin-bottom:9px}.btn.primary{background:var(--blue);color:#fff}.btn.green{background:var(--green);color:#fff}.btn.navy{background:var(--navy);color:#fff}.btn.red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)}.btn.secondary{background:var(--card);color:var(--ink);border:1px solid var(--line)}.btn.light{background:#f1f5f9;color:var(--slate);border:1px solid var(--line)}.btn.gray{background:#cbd5e1;color:var(--ink);border:1px solid #94a3b8}.btn:disabled{opacity:.45}.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn-row.three{grid-template-columns:1fr;gap:8px}.empty{padding:26px 10px;text-align:center;color:var(--faint);font-size:13.5px}.empty svg{width:28px;height:28px;margin-bottom:8px;color:var(--faint)}
+  input.input,textarea.input,select.input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 13px;font-size:15px;background:var(--card);color:var(--ink);font-family:inherit;margin-bottom:10px}textarea.input{min-height:88px;resize:vertical}.search{position:sticky;top:0;background:var(--bg);z-index:2;padding-top:2px}.staff-card,.issue-card{background:var(--card);border:1px solid var(--line-soft);border-radius:15px;padding:13px;margin-bottom:9px}.staff-card .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.staff-card .badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.staff-lines{display:flex;flex-direction:column;gap:7px;margin-top:10px}.staff-line{display:grid;grid-template-columns:minmax(92px,.7fr) 1.3fr;gap:8px;background:#f8fafc;border:1px solid var(--line-soft);border-radius:11px;padding:8px}.staff-line .period{font-size:11.5px;font-weight:850;color:var(--navy);line-height:1.25}.staff-line .detail{font-size:12px;color:var(--slate);line-height:1.35}.quick-share{display:flex;gap:6px;margin-top:10px}.quick-share-btn{flex:1;border:1px solid var(--line);background:#f8fafc;color:var(--navy);font-size:11.5px;font-weight:850;border-radius:9px;padding:7px 4px;transition:transform .1s cubic-bezier(.2,.8,.4,1),opacity .1s ease;-webkit-tap-highlight-color:transparent}.quick-share-btn:active:not(:disabled){transform:scale(.94);opacity:.8}.quick-share-btn.lp-pressing{transition:transform .55s cubic-bezier(.4,0,.2,1),background-color .55s cubic-bezier(.4,0,.2,1),color .55s cubic-bezier(.4,0,.2,1)!important;transform:scale(.88)!important;background-color:var(--blue)!important;color:#fff!important}.quick-share-btn:disabled{opacity:.42;color:var(--muted);cursor:not-allowed}.row-stack{border-bottom:1px solid var(--line-soft);padding-bottom:10px;margin-bottom:10px}.row-stack:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}.issue-swipe-wrap{position:relative;margin-bottom:9px;border-radius:15px;overflow:hidden;background:var(--red-bg);border:1px solid var(--red-line)}.issue-swipe-action{position:absolute;inset:0 14px 0 auto;display:flex;align-items:center;justify-content:flex-end;color:var(--red);font-size:12px;font-weight:950}.issue-swipe-wrap .issue-card{margin-bottom:0;position:relative;z-index:1;will-change:transform}.issue-card{border-left:4px solid var(--amber);touch-action:pan-y;transition:transform .18s ease,opacity .15s ease,box-shadow .15s ease}.issue-card.high{border-left-color:var(--red)}.issue-card.done{border-left-color:var(--green)}.issue-card.swiping{opacity:.94}.issue-card.swipe-ready{box-shadow:-12px 0 24px rgba(220,38,38,.18)}.issue-clear{border:0;background:#f1f5f9;color:var(--muted);font-size:11px;font-weight:850;border-radius:999px;padding:5px 9px;margin-top:8px}
+  .seg{display:flex;gap:8px;margin-bottom:12px}.seg button{flex:1;text-align:center;padding:10px;border-radius:11px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:800;color:var(--slate)}.seg button.active{background:var(--navy);color:#fff;border-color:var(--navy)}.admin-table-wrap{overflow:auto;border:1px solid var(--line-soft);border-radius:13px;background:var(--card);max-height:420px}.admin-table{border-collapse:collapse;width:100%;font-size:12px}.admin-table th,.admin-table td{border-bottom:1px solid var(--line-soft);border-right:1px solid var(--line-soft);padding:8px;vertical-align:top;text-align:left;min-width:110px;white-space:pre-line}.admin-table th{font-weight:850;background:#f8fafc;position:sticky;top:0;z-index:1}.schedule-card{background:var(--card);border:1px solid var(--line-soft);border-radius:14px;padding:12px;margin-bottom:8px}.schedule-card .name{font-weight:850;font-size:14px;margin-bottom:8px}.schedule-card .line{font-size:12.5px;color:var(--slate);padding:5px 0;border-top:1px solid var(--line-soft);line-height:1.35}.schedule-line{display:grid;grid-template-columns:minmax(92px,.7fr) 1.3fr;gap:8px;border-top:1px solid var(--line-soft);padding:7px 0;font-size:12.5px;color:var(--slate);line-height:1.35}.schedule-line .period{font-weight:850;color:var(--navy)}.schedule-line .detail{min-width:0}.landscape-note{display:none}.landscape-table .admin-table-wrap{max-height:calc(100dvh - 235px)}.landscape-table .landscape-note{display:block;color:var(--muted);font-size:12px;margin:-4px 0 10px}
+  .read-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--line-soft);border-radius:15px;padding:12px 13px;margin-bottom:13px}.read-strip strong{font-size:13px}.read-strip .status{font-size:12px;color:var(--muted);font-weight:800;text-align:right}.refresh-stamp{font-size:11.5px;color:var(--faint);font-weight:800;text-align:right;margin:0 2px 10px}.draft-banner{display:flex;align-items:center;gap:7px;background:var(--amber-bg);border:1px solid var(--amber-line);color:var(--amber);border-radius:13px;padding:9px 11px;margin-top:9px;font-size:12.5px;font-weight:850}.draft-banner:before{content:'!';width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#fff;color:var(--amber);font-size:11px;font-weight:950}.schedule-status{margin-top:-3px;margin-bottom:8px}.pull-indicator{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0) + 8px);transform:translate(-50%,-16px);opacity:0;pointer-events:none;z-index:95;background:var(--navy);color:#fff;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:850;box-shadow:0 10px 24px rgba(15,23,42,.24);transition:opacity .18s cubic-bezier(.16,1,.3,1),transform .18s cubic-bezier(.16,1,.3,1)}.pull-indicator.show{opacity:1;transform:translate(-50%,0)}.pull-indicator.ready{background:var(--green)}.toast-container{position:fixed;left:18px;right:18px;bottom:calc(env(safe-area-inset-bottom,0) + 84px);z-index:80;display:flex;flex-direction:column-reverse;gap:8px;pointer-events:none}.toast{background:var(--navy);color:#fff;padding:13px 16px;border-radius:13px;font-size:13.5px;font-weight:700;text-align:center;opacity:0;transform:translateY(10px) scale(.95);transition:opacity .2s cubic-bezier(.16,1,.3,1),transform .2s cubic-bezier(.16,1,.3,1);pointer-events:none;box-shadow:0 10px 24px rgba(15,23,42,.25)}.toast.show{opacity:1;transform:translateY(0) scale(1)}.toast.leaving{opacity:0;transform:translateY(6px) scale(.97)}.settings-list{background:var(--card);border:1px solid var(--line-soft);border-radius:15px;margin-bottom:18px;overflow:hidden}.settings-row,.school-option{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line-soft);font-size:14.5px;font-weight:700}.settings-row:last-child,.school-option:last-child{border-bottom:0}.settings-row .val{color:var(--faint);font-size:12.5px;font-weight:700}.danger{width:100%;height:50px;border-radius:13px;border:1px solid var(--red-line);background:var(--red-bg);color:var(--red);font-size:15px;font-weight:850;margin-top:4px}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,0);display:flex;z-index:70;align-items:flex-end;backdrop-filter:blur(0px);opacity:0;pointer-events:none;transition:opacity .25s cubic-bezier(.16,1,.3,1),background-color .25s cubic-bezier(.16,1,.3,1),backdrop-filter .25s cubic-bezier(.16,1,.3,1)}.modal-backdrop.show{opacity:1;pointer-events:auto;background:rgba(15,23,42,.46);backdrop-filter:blur(3px)}.modal{background:var(--bg);width:100%;max-height:88dvh;border-radius:24px 24px 0 0;padding:15px 16px calc(env(safe-area-inset-bottom,0) + 16px);box-shadow:0 -18px 48px rgba(15,23,42,.28);display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.7);transform:translateY(100%);transition:transform .3s cubic-bezier(.16,1,.3,1)}.modal-backdrop.show .modal{transform:translateY(0)}.modal.dragging{transition:none}.modal-head{touch-action:none;cursor:grab}.modal:before{content:'';width:42px;height:5px;border-radius:999px;background:#cbd5e1;margin:0 auto 12px;display:block}.modal.confirm{background:var(--card);padding-bottom:calc(env(safe-area-inset-bottom,0) + 18px)}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}.modal-head h3{margin:0;font-size:17px;letter-spacing:-.01em}.modal-close{border:0;background:#e2e8f0;color:var(--slate);height:32px;width:32px;border-radius:50%;font-weight:950}.modal-body{overflow:auto;-webkit-overflow-scrolling:touch;padding-right:2px}.confirm-copy{font-size:13.5px;color:var(--slate);line-height:1.45;margin:0 0 14px}.confirm-icon{width:38px;height:38px;border-radius:13px;background:var(--blue);color:#fff;display:grid;place-items:center;font-weight:950;margin-bottom:11px}.confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.send-row{display:grid;grid-template-columns:23px minmax(0,1fr);gap:8px;align-items:flex-start;background:var(--card);border:1px solid var(--line-soft);border-radius:13px;padding:9px;margin-bottom:7px}.send-row input[type=checkbox]{width:18px;height:18px;margin:3px 0 0}.send-main{min-width:0}.send-name-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.send-name-row .who{font-size:14px;line-height:1.2}.pref-pill{flex-shrink:0;background:#f1f5f9;color:var(--muted);border:1px solid var(--line-soft);border-radius:999px;padding:3px 8px;font-size:10.5px;font-weight:900;text-transform:none;white-space:nowrap}.send-capabilities{font-size:11px;color:var(--faint);font-weight:800;margin-top:1px}.mini-seg{display:flex;background:#e2e8f0;border-radius:999px;padding:2px;gap:2px;margin-top:5px;max-width:202px}.mini-seg button{flex:1;border:0;border-radius:999px;background:transparent;padding:5px 7px;font-size:10.5px;font-weight:850;color:var(--muted)}.mini-seg button.active{background:#fff;color:var(--navy);box-shadow:0 1px 2px rgba(15,23,42,.12)}.modal-actions{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}.send-note{font-size:12px;color:var(--muted);margin:0 0 9px;line-height:1.4}
+  @media (orientation:landscape){.btn-row.three{grid-template-columns:1fr 1fr 1fr}.modal{max-height:96dvh}.landscape-table .scroll-body{padding-left:10px;padding-right:10px}.landscape-table .admin-table-wrap{max-height:calc(100dvh - 190px)}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <section class="screen" id="scr-signin">
+    <div class="signin-hero"><div class="signin-icon"><img src="icons/icon-192.png" alt=""></div><h1>Support Schedules Admin</h1><p class="signin-sub">Check today, share schedules, and handle urgent coverage from your phone.</p></div>
+    <div class="signin-body"><div class="signin-card"><div class="signin-checks"><div class="signin-check-row"><span class="check-badge">✓</span> Know what is happening right now</div><div class="signin-check-row"><span class="check-badge">✓</span> See who has viewed the schedule</div><div class="signin-check-row"><span class="check-badge">✓</span> Send all-staff or change-only updates</div></div><a class="google-btn" href="#" id="signInBtn">Sign in with Google</a></div><p class="signin-err" id="signinErr"></p></div>
+  </section>
+
+  <section class="screen" id="scr-lock">
+    <div class="lock-hero">
+      <img src="/brand/logo-white-text.png" alt="" class="lock-logo">
+      <button type="button" class="lock-icon-wrap" onclick="attemptBiometricUnlock();return false" aria-label="Unlock with Face ID or Touch ID">
+        <svg viewBox="0 0 24 24" fill="none" class="lock-icon"><rect x="5" y="11" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="16" r="1.6" fill="currentColor"/></svg>
+      </button>
+      <p class="lock-sub">Tap to verify</p>
+      <p class="lock-err" id="lockErr"></p>
+    </div>
+  </section>
+  <section class="screen" id="scr-dashboard">
+    <div class="topbar"><h1>Today</h1><button class="school-chip" onclick="goTab('settings')"><svg viewBox="0 0 24 24" fill="none"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2-1.5-2-3.4-2.4 1a8.2 8.2 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.6A8.2 8.2 0 0 0 7 6.6l-2.4-1-2 3.4 2 1.5a8.3 8.3 0 0 0 0 3l-2 1.5 2 3.4 2.4-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.6h4l.4-2.6a8.2 8.2 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span id="dashSchoolName">School</span></button></div>
+    <div class="scroll-body" id="dashboardBody"><div class="card"><h3>Loading…</h3></div></div><nav class="tabbar safe-bottom" id="tabbar-dashboard"></nav>
+  </section>
+
+  <section class="screen" id="scr-schedules">
+    <div class="topbar"><h1>Schedules</h1><div style="display:flex;align-items:center;gap:4px"><button id="scheduleShareIconBtn" onclick="shareScheduleImage()" disabled title="Share published schedule as image" style="background:none;border:0;padding:6px;opacity:.35;cursor:not-allowed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3v13M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="mode-switch"><button id="modePublishedBtn" onclick="setScheduleMode('published')">Published</button><button id="modeDraftBtn" onclick="setScheduleMode('draft')">Draft</button></div></div></div>
+    <div class="scroll-body">
+      <div class="btn-row"><button class="btn primary" onclick="generateSchedule()">Generate</button><button class="btn green" id="schedulePublishBtn" onclick="publishSchedule()" disabled>Publish</button></div>
+      <div class="card"><div class="toolbar"><select class="input" id="scheduleViewSelect" onchange="scheduleView=this.value;loadSchedules()" style="margin:0"><option value="staff">Staff</option><option value="students">Students</option><option value="breaks">Breaks</option></select></div><div class="seg"><button data-format="cards" onclick="setScheduleFormat('cards')">Cards</button><button data-format="table" onclick="setScheduleFormat('table')">Table</button></div><div class="landscape-note">Table view works best in landscape.</div><div id="schedulesMeta" class="subtle"></div></div>
+      <div id="schedulesBody"><div class="empty">Loading schedule…</div></div>
+    </div><nav class="tabbar safe-bottom" id="tabbar-schedules"></nav>
+  </section>
+
+  <section class="screen" id="scr-coverage">
+    <div class="topbar"><h1>Coverage</h1></div>
+    <div class="scroll-body"><div id="coverageBody"><div class="empty">Loading…</div></div></div><nav class="tabbar safe-bottom" id="tabbar-coverage"></nav>
+  </section>
+
+  <section class="screen" id="scr-staff">
+    <div class="topbar"><h1>Staff</h1></div>
+    <div class="scroll-body"><div class="search"><input class="input" id="staffSearch" placeholder="Search staff…" oninput="renderStaff()"></div><div id="staffBody"><div class="empty">Loading…</div></div></div><nav class="tabbar safe-bottom" id="tabbar-staff"></nav>
+  </section>
+
+  <section class="screen" id="scr-communicate">
+    <div class="topbar"><h1>Communication</h1></div>
+    <div class="scroll-body" id="communicationBody"><div class="card"><h3>Loading…</h3></div></div><nav class="tabbar safe-bottom" id="tabbar-communicate"></nav>
+  </section>
+
+  <section class="screen" id="scr-issues">
+    <div class="topbar"><h1>Issues</h1></div>
+    <div class="scroll-body" id="issuesBody"><div class="empty">Loading…</div></div><nav class="tabbar safe-bottom" id="tabbar-issues"></nav>
+  </section>
+
+  <section class="screen" id="scr-settings">
+    <div class="topbar"><h1>Settings</h1><button class="top-action" onclick="goTab('dashboard')">Done</button></div>
+    <div class="scroll-body"><div class="small-title">Signed in as</div><div class="settings-list"><div class="settings-row"><span id="settingsUserName">—</span><span class="val" id="settingsUserEmail">—</span></div></div><div class="small-title">School</div><div class="settings-list" id="schoolPickerList"></div><div class="small-title">Security</div><div class="settings-list" id="biometricSettingsRow"></div><button class="danger" onclick="signOut()">Sign out</button></div>
+  </section>
+</div>
+<div class="modal-backdrop" id="sendModal"><div class="modal"><div class="modal-head"><h3 id="sendModalTitle">Send</h3><button class="modal-close" onclick="closeSendModal()">×</button></div><div class="modal-body" id="sendModalBody"></div><div class="modal-actions" id="sendModalActions"></div></div></div>
+<div class="modal-backdrop" id="confirmModal"><div class="modal confirm"><div class="confirm-icon" id="confirmIcon">!</div><div class="modal-head"><h3 id="confirmTitle">Confirm</h3><button class="modal-close" onclick="resolveConfirm(false)">×</button></div><p class="confirm-copy" id="confirmMessage"></p><div class="confirm-actions"><button class="btn secondary" onclick="resolveConfirm(false)">Cancel</button><button class="btn primary" id="confirmPrimary" onclick="resolveConfirm(true)">Continue</button></div></div></div>
+<div class="pull-indicator" id="pullIndicator">Pull to refresh</div>
+<div class="toast-container" id="toastContainer"></div>
+<script>
+var bootstrapData=null,selectedSchoolId='',activeTab='dashboard',nowData=null,absData=null,commData=null,coverageData=null,staffData=[],issuesData=[],schedulesData=null,sendState=null,lastRefreshByTab={},confirmResolve=null;
+var scheduleFormat=localStorage.getItem('gaAdminAppScheduleFormatV05418DX')||'cards',scheduleView='staff',scheduleMode='published',scheduleHasDraft=false,lastKnownPublishedAt='',lastKnownPublishedVersion=1,absenceView='staff',commBadgeCount=0,issueBadgeCount=0,todayBadgeCount=0;
+var LABELS={dashboard:'Today',schedules:'Schedules',coverage:'Coverage',staff:'Staff',communicate:'Comm',issues:'Issues'};
+function by(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function empty(s){return '<div class="empty">'+esc(s)+'</div>'}
+function pill(t,type){return '<span class="pill '+(type||'neutral')+'">'+esc(t)+'</span>'}
+function showScreen(n){document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active')});var el=by('scr-'+n);if(el)el.classList.add('active')}
+function schoolQS(){return selectedSchoolId?'?school='+encodeURIComponent(selectedSchoolId):''}
+function fetchJson(url,opt){opt=opt||{};opt.credentials='same-origin';opt.headers=Object.assign({'Content-Type':'application/json'},opt.headers||{});return fetch(url,opt).then(function(r){if(r.status===401){showScreen('signin');throw new Error('Signed out')}return r.json().then(function(j){if(!j.ok)throw new Error(j.error||'Request failed');return j})})}
+function showToast(msg){
+  var container=by('toastContainer');
+  if(!container)return;
+  var t=document.createElement('div');
+  t.className='toast';
+  t.textContent=msg;
+  container.appendChild(t);
+  requestAnimationFrame(function(){t.classList.add('show')});
+  setTimeout(function(){
+    t.classList.remove('show');
+    t.classList.add('leaving');
+    setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t)},200);
+  },2600);
+}
+function markRefreshed(tab){lastRefreshByTab[tab||activeTab]=new Date()}
+function refreshStampHtml(tab){var d=lastRefreshByTab[tab||activeTab];return d?'<div class="refresh-stamp">Last refreshed: '+esc(fmtDateTimeLA(d))+'</div>':''}
+function showPull(text,ready){var el=by('pullIndicator');if(!el)return;el.textContent=text||'Pull to refresh';el.classList.add('show');el.classList.toggle('ready',!!ready)}
+function hidePull(){var el=by('pullIndicator');if(!el)return;el.classList.remove('show','ready')}
+function refreshActiveTab(){if(activeTab==='dashboard')loadToday();else if(activeTab==='schedules')loadSchedules();else if(activeTab==='staff')loadStaff();else if(activeTab==='communicate')loadCommunication();else if(activeTab==='issues')loadIssues()}
+function activeScrollBody(){var sc=by('scr-'+activeTab);return sc&&sc.querySelector('.scroll-body')}
+function initPullToRefresh(){var startY=0,pulling=false,ready=false;document.addEventListener('touchstart',function(e){var sc=activeScrollBody();if(!sc||sc.scrollTop>0||by('sendModal').classList.contains('show')||by('confirmModal').classList.contains('show'))return;startY=e.touches&&e.touches[0]?e.touches[0].clientY:0;pulling=!!startY;ready=false},{passive:true});document.addEventListener('touchmove',function(e){if(!pulling||!e.touches||!e.touches[0])return;var dy=e.touches[0].clientY-startY;if(dy>22){ready=dy>74;showPull(ready?'Release to refresh':'Pull to refresh',ready)}else hidePull()},{passive:true});document.addEventListener('touchend',function(){if(!pulling)return;if(ready){showPull('Refreshing…',true);refreshActiveTab();setTimeout(hidePull,900)}else hidePull();startY=0;pulling=false;ready=false},{passive:true})}
+function showConfirm(title,msg,primary,kind){return new Promise(function(resolve){confirmResolve=resolve;by('confirmTitle').textContent=title||'Confirm';by('confirmMessage').textContent=msg||'';by('confirmPrimary').textContent=primary||'Continue';by('confirmPrimary').className='btn '+(kind==='green'?'green':(kind==='red'?'red':'primary'));by('confirmIcon').textContent=kind==='green'?'✓':'!';by('confirmIcon').style.background=kind==='green'?'var(--green)':(kind==='red'?'var(--red)':'var(--blue)');by('confirmModal').classList.add('show')})}
+function resolveConfirm(ok){by('confirmModal').classList.remove('show');var fn=confirmResolve;confirmResolve=null;if(fn)fn(!!ok)}
+function saveSelectedSchool(id){try{localStorage.setItem('gaAdminAppSelectedSchool',id||'')}catch(e){}}
+function loadSelectedSchool(){try{return localStorage.getItem('gaAdminAppSelectedSchool')||''}catch(e){return''}}
+function currentSchoolName(){var schools=(bootstrapData&&bootstrapData.schools)||[];var s=schools.find(function(x){return String(x.campusId||'')===String(selectedSchoolId||'')});return (s&&s.campusName)||selectedSchoolId||'School'}
+function normName(s){return String(s||'').trim().toLowerCase().replace(/\s+/g,' ')}
+function staffAbsenceKeys(){return new Set(((absData&&absData.staffAbsences)||[]).map(function(r){return normName(r.staff||r.name||r.staffName)}).filter(Boolean))}
+function isStaffAbsentName(name){return staffAbsenceKeys().has(normName(name))}
+function isActiveStaff(r){return r&&r.active!==false&&!/not active|inactive/i.test(String(r.status||r.skipReason||''))}
+function hasScheduleLine(r){return !!((Array.isArray(r.scheduleLines)&&r.scheduleLines.length)||String(r.schedulePreview||'').trim())}
+function eligibleStaffRows(rows){return (rows||[]).filter(function(r){return isActiveStaff(r)&&!isStaffAbsentName(r.staff)&&hasScheduleLine(r)})}
+function fmtDateTimeLA(value){if(!value)return'';var d=value instanceof Date?value:new Date(value);if(isNaN(d.getTime()))return String(value);try{var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'2-digit',day:'2-digit',year:'2-digit',hour:'numeric',minute:'2-digit',hour12:true}).formatToParts(d);var o={};parts.forEach(function(p){o[p.type]=p.value});return [o.month,o.day,o.year].join('-')+' @ '+o.hour+':'+o.minute+' '+o.dayPeriod}catch(e){return String(value)}}
+function scheduleVersionText(j){j=j||{};var label=String(j.scheduleLabel||'').trim();if(!label)return j.publishedAt?'Published Schedule':'Schedule';return /^published schedule/i.test(label)?label:'Published Schedule · '+label}
+function iconSvg(name){var d={dashboard:'M4 12h16M12 4v16',schedules:'M7 3h10v4H7V3Zm-2 7h14M5 14h14M5 18h14',coverage:'M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3Zm-3 9 2 2 4-4',staff:'M16 11a4 4 0 1 0-8 0m-4 9a8 8 0 0 1 16 0',communicate:'M4 5h16v11H7l-3 3V5Z',issues:'M12 3 2 21h20L12 3Zm0 6v5m0 3h.01'}[name]||'M4 12h16';return '<svg viewBox="0 0 24 24" fill="none"><path d="'+d+'" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+function buildTabbar(el,active){if(!el)return;el.innerHTML=Object.keys(LABELS).map(function(n){var badge=n==='dashboard'&&todayBadgeCount?'<b class="tab-badge">!</b>':(n==='communicate'&&commBadgeCount?'<b class="tab-badge">!</b>':(n==='issues'&&issueBadgeCount?'<b class="tab-badge">'+issueBadgeCount+'</b>':''));return '<button class="tab '+(n===active?'active':'')+'" onclick="goTab(\''+n+'\')">'+iconSvg(n)+badge+'<span>'+LABELS[n]+'</span></button>'}).join('')}
+function rebuildTabbars(){Object.keys(LABELS).forEach(function(n){buildTabbar(by('tabbar-'+n),activeTab)});updateAppIconBadge()}
+function updateAppIconBadge(){
+  try {
+    if (issueBadgeCount > 0 && navigator.setAppBadge) navigator.setAppBadge(issueBadgeCount);
+    else if (navigator.clearAppBadge) navigator.clearAppBadge();
+  } catch (e) {}
+}
+function setBodyLandscape(on){document.body.classList.toggle('landscape-table',!!on);if(on&&screen.orientation&&screen.orientation.lock){try{screen.orientation.lock('landscape').catch(function(){})}catch(e){}}else if(screen.orientation&&screen.orientation.unlock){try{screen.orientation.unlock()}catch(e){}}}
+function goTab(name){activeTab=name==='settings'?activeTab:name;showScreen(name);rebuildTabbars();if(name!=='schedules')setBodyLandscape(false);if(name==='dashboard')loadToday();if(name==='schedules')loadSchedules();if(name==='coverage')loadCoverage();if(name==='staff')loadStaff();if(name==='communicate')loadCommunication();if(name==='issues')loadIssues();if(name==='settings')renderSettings()}
+function signOut(){location.href='/auth/logout?next=/admin-app'}
+function init(){by('signInBtn').href='/auth/login?returnTo=/admin-app&scope=lite';fetchJson('/api/admin-app/bootstrap').then(function(j){
+  bootstrapData=j;var saved=loadSelectedSchool();var schools=j.schools||[];selectedSchoolId=saved&&schools.some(function(s){return String(s.campusId)===String(saved)})?saved:(j.defaultCampusId||((schools[0]&&schools[0].campusId)||''));saveSelectedSchool(selectedSchoolId);
+  fetchJson('/api/admin-app/biometric/status').then(function(b){
+    if(b&&b.enabled){showScreen('lock')} else {proceedToApp()}
+  }).catch(function(){proceedToApp()});
+}).catch(function(e){by('signinErr').textContent=e.message||'';showScreen('signin')})}
+function proceedToApp(){initPullToRefresh();showScreen('dashboard');activeTab='dashboard';rebuildTabbars();loadToday();refreshBadges();requestNotificationPermissionForBadging();startBadgeRefreshLoop()}
+var badgeRefreshIntervalId=null;
+function startBadgeRefreshLoop(){
+  if(badgeRefreshIntervalId)return;
+  badgeRefreshIntervalId=setInterval(function(){ if(document.visibilityState==='visible')refreshBadges(); },60000);
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible')refreshBadges(); });
+}
+function requestNotificationPermissionForBadging(){
+  try {
+    if(typeof Notification==='undefined'||Notification.permission!=='default')return;
+    // Tied to this user-initiated login/unlock moment -- iOS requires the permission
+    // prompt to be triggered by direct user interaction, not fired automatically on load.
+    Notification.requestPermission().catch(function(){});
+  } catch(e){}
+}
+function verifyBiometric(){
+  if(!window.PublicKeyCredential)return Promise.reject(new Error('Face ID / Touch ID is not supported on this device.'));
+  return fetchJson('/api/admin-app/biometric/auth-options',{method:'POST'}).then(function(r){
+    var opts=r.options;
+    var publicKey={
+      challenge:base64urlToBuffer(opts.challenge),
+      allowCredentials:(opts.allowCredentials||[]).map(function(c){return {type:c.type,id:base64urlToBuffer(c.id)}}),
+      userVerification:opts.userVerification||'required',
+      timeout:opts.timeout||60000
+    };
+    return navigator.credentials.get({publicKey:publicKey});
+  }).then(function(assertion){
+    var body={
+      clientDataJSON:bufferToBase64(assertion.response.clientDataJSON),
+      authenticatorData:bufferToBase64(assertion.response.authenticatorData),
+      signature:bufferToBase64(assertion.response.signature)
+    };
+    return fetchJson('/api/admin-app/biometric/auth-verify',{method:'POST',body:JSON.stringify(body)});
+  });
+}
+function attemptBiometricUnlock(){
+  var errEl=by('lockErr');errEl.textContent='';
+  verifyBiometric().then(function(){
+    proceedToApp();
+  }).catch(function(e){errEl.textContent=(e&&e.message)||'Could not verify. Try again.'});
+}
+function base64urlToBuffer(s){var pad=s.length%4===0?'':'='.repeat(4-(s.length%4));var b64=(s+pad).replace(/-/g,'+').replace(/_/g,'/');var raw=atob(b64);var buf=new Uint8Array(raw.length);for(var i=0;i<raw.length;i++)buf[i]=raw.charCodeAt(i);return buf.buffer}
+function bufferToBase64(buf){var bytes=new Uint8Array(buf);var s='';for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function loadToday(){by('dashSchoolName').textContent=currentSchoolName();var body=by('dashboardBody');body.innerHTML='<div class="card"><h3>Loading today…</h3></div>';Promise.all([fetchJson('/api/admin-app/now'+schoolQS()).catch(function(e){return{ok:false,error:e.message}}),fetchJson('/api/admin-app/absences'+schoolQS()).catch(function(e){return{ok:false,error:e.message}})]).then(function(a){nowData=a[0]||{};absData=a[1]||{};markRefreshed('dashboard');renderToday();refreshBadges()})}
+function renderToday(){var now=nowData||{};var version=(now.publishedAt||now.scheduleLabel)?'<div class="subtle schedule-status">'+esc(scheduleVersionText(now))+(now.publishedAt?' · Published '+esc(fmtDateTimeLA(now.publishedAt)):'')+'</div>':'';var nowCard='<div class="card"><h3>'+(now.available?esc(now.periodLabel||'Now'):'Now')+(now.timeLabel?' <span class="subtle">· '+esc(now.timeLabel)+'</span>':'')+'</h3>'+version+(now.available?renderNowRows(now):empty(now.unavailableReason||'Current time is outside active schedule hours'))+'</div>';var absCard=renderAbsenceCard();by('dashboardBody').innerHTML=refreshStampHtml('dashboard')+nowCard+absCard}
+function renderNowRows(j){var staff=j.staffRows||[],students=j.studentRows||[];var html='';if(staff.length)html+='<div class="small-title">Staff</div>'+staff.slice(0,8).map(function(r){return '<div class="row"><span class="who">'+esc(r.staff||'')+'</span><span class="what">'+esc([r.location,r.detail].filter(Boolean).join(' · '))+'</span></div>'}).join('');if(students.length)html+='<div class="small-title">Students</div>'+students.slice(0,8).map(function(r){return '<div class="row"><span class="who">'+esc(r.student||'')+'</span><span class="what">'+esc([r.staff,r.location].filter(Boolean).join(' · '))+'</span></div>'}).join('');return html||empty('No assignments in this block.')}
+function renderAbsenceCard(){var rows=absenceView==='students'?((absData&&absData.studentAbsences)||[]):((absData&&absData.staffAbsences)||[]);var toggle='<div class="seg"><button class="'+(absenceView==='staff'?'active':'')+'" onclick="setAbsenceView(\'staff\')">Staff</button><button class="'+(absenceView==='students'?'active':'')+'" onclick="setAbsenceView(\'students\')">Students</button></div>';var list=rows.length?rows.map(function(r){var name=r.staff||r.student||r.name||r.staffName||r.studentName||'';var detail=[r.reason,r.status,r.note,r.notes,r.detail].filter(Boolean).join(' · ');return '<div class="row"><span class="who">'+esc(name)+'</span><span class="what">'+esc(detail||'Absent')+'</span></div>'}).join(''):empty('No '+(absenceView==='staff'?'staff':'student')+' absences reported.');return '<div class="card"><h3>Absent</h3>'+toggle+list+'</div>'}
+function setAbsenceView(v){absenceView=v==='students'?'students':'staff';renderToday()}
+function setScheduleMode(mode){scheduleMode=mode==='draft'?'draft':'published';loadSchedules()}
+function setScheduleFormat(mode){scheduleFormat=mode==='table'?'table':'cards';localStorage.setItem('gaAdminAppScheduleFormatV05418DX',scheduleFormat);document.querySelectorAll('[data-format]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-format')===scheduleFormat)});setBodyLandscape(scheduleFormat==='table'&&activeTab==='schedules');loadSchedules()}
+function updateScheduleControls(){if(by('scheduleViewSelect'))by('scheduleViewSelect').value=scheduleView;if(by('modePublishedBtn'))by('modePublishedBtn').classList.toggle('active',scheduleMode==='published');if(by('modeDraftBtn'))by('modeDraftBtn').classList.toggle('active',scheduleMode==='draft');document.querySelectorAll('[data-format]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-format')===scheduleFormat)});var p=by('schedulePublishBtn');if(p)p.disabled=!scheduleHasDraft;var si=by('scheduleShareIconBtn');if(si){var hasPub=!!lastKnownPublishedAt;si.disabled=!hasPub;si.style.opacity=hasPub?'1':'.35';si.style.cursor=hasPub?'pointer':'not-allowed';}}
+function shareScheduleImage(){
+  if(typeof html2canvas!=='function'){showToast('Image export is not available right now.');return}
+  showToast('Preparing image…');
+
+  fetchJson('/api/admin-app/schedule?view=staff&mode=published'+(selectedSchoolId?'&school='+encodeURIComponent(selectedSchoolId):'')).then(function(j){
+    if(!j.table||!j.table.columns||!j.table.rows||!j.table.rows.length){showToast('No schedule data to share.');return}
+
+    var tableHtml='<table style="border-collapse:collapse;width:100%;font-size:13px;">'
+      +'<thead><tr>'+j.table.columns.map(function(c){return '<th style="text-align:left;padding:8px 12px;border-bottom:2px solid #0f172a;color:#0f172a;font-weight:700;white-space:nowrap;">'+esc(c)+'</th>'}).join('')+'</tr></thead>'
+      +'<tbody>'+j.table.rows.map(function(r,i){var cells=r.cells||[];return '<tr style="background:'+(i%2?'#f8fafc':'#ffffff')+';">'+j.table.columns.map(function(c,ci){return '<td style="padding:7px 12px;border-bottom:1px solid #e2e8f0;color:#334155;white-space:nowrap;">'+esc(cells[ci]||'')+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table>';
+
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-9999px;top:0;width:1600px;background:#ffffff;padding:28px;font-family:-apple-system,system-ui,sans-serif;';
+    var schoolName=currentSchoolName();
+    var dateLabel=(new Date()).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    var footerLine='Published '+esc(fmtDateTimeLA(j.publishedAt||lastKnownPublishedAt))+' · Version '+esc(String(j.dailyVersion||lastKnownPublishedVersion||1));
+
+    wrap.innerHTML='<div style="border-bottom:2px solid #0f172a;padding-bottom:14px;margin-bottom:18px;">'
+      +'<div style="font-size:22px;font-weight:800;color:#0f172a;">'+esc(schoolName)+'</div>'
+      
+      +'</div>'
+      +'<div id="scheduleImageBody">'+tableHtml+'</div>'
+      +'<div style="border-top:1px solid #e2e8f0;margin-top:20px;padding-top:12px;font-size:12px;color:#94a3b8;">'+footerLine+'</div>';
+    document.body.appendChild(wrap);
+
+    html2canvas(wrap,{backgroundColor:'#ffffff',scale:2}).then(function(canvas){
+      document.body.removeChild(wrap);
+      canvas.toBlob(function(blob){
+        if(!blob){showToast('Could not generate image.');return}
+        var fileName=(selectedSchoolId||'schedule')+'-'+(new Date()).toISOString().slice(0,10)+'.png';
+        var file=new File([blob],fileName,{type:'image/png'});
+        if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+          navigator.share({files:[file],title:'Staff Schedule'}).catch(function(e){
+            if(e&&e.name!=='AbortError')showToast('Could not share image.');
+          });
+        } else {
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement('a');
+          a.href=url;a.download=fileName;document.body.appendChild(a);a.click();
+          document.body.removeChild(a);
+          setTimeout(function(){URL.revokeObjectURL(url)},4000);
+          showToast('Image downloaded.');
+        }
+      },'image/png');
+    }).catch(function(){
+      if(wrap.parentNode)document.body.removeChild(wrap);
+      showToast('Could not generate image.');
+    });
+  }).catch(function(e){showToast('Could not load schedule: '+(e.message||e));});
+}
+function loadSchedules(){setBodyLandscape(scheduleFormat==='table');updateScheduleControls();var el=by('schedulesBody');if(!el)return;el.innerHTML=empty('Loading schedule…');fetchJson('/api/admin-app/schedule?view='+encodeURIComponent(scheduleView)+'&mode='+encodeURIComponent(scheduleMode)+(selectedSchoolId?'&school='+encodeURIComponent(selectedSchoolId):'')).then(function(j){schedulesData=j;scheduleHasDraft=!!j.hasDraft;if(j.mode==='published'&&j.publishedAt){lastKnownPublishedAt=j.publishedAt;lastKnownPublishedVersion=j.dailyVersion||1;}markRefreshed('schedules');updateScheduleControls();var meta=j.mode==='draft'&&j.hasDraft?'Draft Schedule':scheduleVersionText(j);if(j.mode==='draft'&&!j.hasDraft)meta='No unpublished draft found. Showing the published schedule.';else if(j.publishedAt)meta+=' · Published '+fmtDateTimeLA(j.publishedAt);var draftNotice=(j.mode==='draft'&&j.hasDraft)?'<div class="draft-banner">Draft has unpublished changes</div>':'';by('schedulesMeta').innerHTML=esc(meta)+draftNotice+'<div class="refresh-stamp" style="margin-top:9px;margin-bottom:0">Last refreshed: '+esc(fmtDateTimeLA(lastRefreshByTab.schedules))+'</div>';renderSchedule(j.rows||[],j.table||null,el)}).catch(function(e){if(e.message!=='Signed out')el.innerHTML=empty(e.message)})}
+function parseScheduleLine(l){var s=String(l||'').trim();var time='(?:\\d{1,2}:\\d{2}\\s*(?:AM|PM)?|\\d{1,2}\\s*(?:AM|PM))';var m=s.match(new RegExp('^(.*?)\\s+('+time+'(?:\\s*[–—-]\\s*'+time+')?.*)$','i'));if(m&&m[1].trim()){return{period:m[1].trim().replace(/[\\s:–—-]+$/,''),detail:m[2].replace(/(\\d{1,2}):(\\d{2})/g,'$1:$2').replace(/\\s+/g,' ').trim()}}var idx=s.search(/:\s+(?!\d{2}\b)/);if(idx>0){return{period:s.slice(0,idx).trim(),detail:s.slice(idx+1).trim()}}var idx2=s.indexOf(': ');if(idx2>0){return{period:s.slice(0,idx2).trim(),detail:s.slice(idx2+1).trim()}}return{period:'Schedule',detail:s.replace(/(\\d{1,2}):(\\d{2})/g,'$1:$2')}}
+function renderScheduleLine(l){var p=parseScheduleLine(l);return '<div class="schedule-line"><span class="period">'+esc(p.period)+'</span><span class="detail">'+esc(p.detail)+'</span></div>'}
+function renderSchedule(rows,table,el){if(scheduleFormat==='table'&&table&&table.columns&&table.rows){el.innerHTML='<div class="admin-table-wrap"><table class="admin-table"><thead><tr>'+table.columns.map(function(c){return '<th>'+esc(c)+'</th>'}).join('')+'</tr></thead><tbody>'+table.rows.slice(0,90).map(function(r){var cells=r.cells||[];return '<tr>'+table.columns.map(function(c,i){return '<td>'+esc(cells[i]||'')+'</td>'}).join('')+'</tr>'}).join('')+'</tbody></table></div>';return}if(!rows.length){el.innerHTML=empty('No schedule data.');return}el.innerHTML=rows.slice(0,90).map(function(r){return '<div class="schedule-card"><div class="name">'+esc(r.name||'')+'</div>'+((r.lines||[]).slice(0,10).map(renderScheduleLine).join(''))+'</div>'}).join('')}
+function generateSchedule(){showConfirm('Generate schedule?','Create a new draft schedule for '+currentSchoolName()+'. Staff will not see it until you publish.','Generate','primary').then(function(ok){if(!ok)return;fetchJson('/api/admin-app/schedule/generate',{method:'POST',body:JSON.stringify({school:selectedSchoolId})}).then(function(){showToast('Schedule generated.');scheduleMode='draft';loadSchedules();refreshBadges()}).catch(function(e){if(e.message!=='Signed out')showToast('Could not generate: '+e.message)})})}
+function publishSchedule(){if(!scheduleHasDraft){showToast('No unpublished schedule to publish.');return}showConfirm('Publish schedule?','Staff will see this as the current published schedule.','Publish','green').then(function(ok){if(!ok)return;fetchJson('/api/admin-app/schedule/publish',{method:'POST',body:JSON.stringify({school:selectedSchoolId})}).then(function(){showToast('Schedule published.');scheduleMode='published';loadSchedules();refreshBadges()}).catch(function(e){if(e.message!=='Signed out')showToast('Could not publish: '+e.message)})})}
+function loadCoverage(){var el=by('coverageBody');el.innerHTML=empty('Loading…');fetchJson('/api/admin-app/coverage-lapses'+schoolQS()).then(function(j){coverageData=j||{};markRefreshed('coverage');renderCoverage()}).catch(function(e){if(e.message!=='Signed out')el.innerHTML=empty(e.message)})}
+function renderCoverage(){
+  var d=coverageData||{};
+  var uncovered=d.uncoveredStudents||[],noBreak=d.staffMissingBreak||[],noLunch=d.staffMissingLunch||[];
+  var el=by('coverageBody');
+  if(!d.publishedAt){el.innerHTML=refreshStampHtml('coverage')+empty('No schedule has been published.');return}
+  if(!uncovered.length&&!noBreak.length&&!noLunch.length){el.innerHTML=refreshStampHtml('coverage')+empty('No coverage lapses found. Everyone is covered, with breaks and lunches scheduled.');return}
+  var html='';
+  if(uncovered.length){
+    html+='<div class="small-title">Uncovered Students ('+uncovered.length+')</div>'+uncovered.map(function(r){
+      return '<div class="row"><span class="who">'+esc(r.student||'')+'</span><span class="what">'+esc(r.period||'')+(r.support?' · '+esc(r.support):'')+'</span></div>';
+    }).join('');
+  }
+  if(noBreak.length){
+    html+='<div class="small-title">Missing a Break ('+noBreak.length+')</div>'+noBreak.map(function(name){
+      return '<div class="row"><span class="who">'+esc(name)+'</span></div>';
+    }).join('');
+  }
+  if(noLunch.length){
+    html+='<div class="small-title">Missing Lunch ('+noLunch.length+')</div>'+noLunch.map(function(name){
+      return '<div class="row"><span class="who">'+esc(name)+'</span></div>';
+    }).join('');
+  }
+  el.innerHTML=refreshStampHtml('coverage')+html;
+}
+function loadStaff(){var el=by('staffBody');el.innerHTML=empty('Loading…');fetchJson('/api/admin-app/coverage-lapses'+schoolQS()).then(function(j){staffData=(j&&j.staffRows)||[];markRefreshed('staff');renderStaff()}).catch(function(e){if(e.message!=='Signed out')el.innerHTML=empty(e.message)})}
+function splitScheduleLines(r){var lines=Array.isArray(r.scheduleLines)?r.scheduleLines.slice():String(r.schedulePreview||'').split(/\n+/);return lines.map(function(x){return String(x||'').trim()}).filter(Boolean)}
+function renderStaffLine(l){var p=parseScheduleLine(l);return '<div class="staff-line"><span class="period">'+esc(p.period)+'</span><span class="detail">'+esc(p.detail)+'</span></div>'}
+function renderStaff(){
+  var q=(by('staffSearch')&&by('staffSearch').value||'').toLowerCase();
+  var rows=(staffData||[]).filter(function(r){return !q||String(r.staff||'').toLowerCase().indexOf(q)>=0});
+  var el=by('staffBody');
+  if(!rows.length){el.innerHTML=refreshStampHtml('staff')+empty('No staff to show.');return}
+  el.innerHTML=refreshStampHtml('staff')+rows.map(function(r){
+    var status=r.viewStatus==='Viewed current'?pill('Viewed','ok'):(r.viewStatus==='Viewed older'?pill('Older view','warn'):pill('Not viewed','warn'));
+    var change=r.changed?pill('Changed','warn'):'';
+    var lines=splitScheduleLines(r);
+    return '<div class="staff-card"><div class="head"><div class="stack"><span class="who">'+esc(r.staff||'')+'</span><span class="meta">Last viewed: '+esc(fmtDateTimeLA(r.portalLastViewed)||'Never')+'</span></div><div class="badges">'+status+change+'</div></div><div class="staff-lines">'+(lines.length?lines.slice(0,8).map(renderStaffLine).join(''):empty('No published schedule line.'))+'</div>'+quickShareButtonsHtml(r)+'</div>';
+  }).join('');
+}
+function loadCommunication(){var el=by('communicationBody');el.innerHTML='<div class="card"><h3>Loading…</h3></div>';Promise.all([fetchJson('/api/admin-app/communication-status'+schoolQS()),fetchJson('/api/admin-app/absences'+schoolQS()).catch(function(){return absData||{staffAbsences:[]}})]).then(function(a){commData=a[0];absData=a[1]||absData||{};markRefreshed('communicate');setCommBadgeFromData(commData);renderCommunication();rebuildTabbars()}).catch(function(e){if(e.message!=='Signed out')el.innerHTML='<div class="card"><h3>Could not load</h3><div class="subtle">'+esc(e.message)+'</div></div>'})}
+function commBadgeMuteKey(){return 'gaAdminAppCommBadgeMuted:'+selectedSchoolId}
+function readCommBadgeMute(){try{return JSON.parse(localStorage.getItem(commBadgeMuteKey())||'null')}catch(e){return null}}
+function isCommBadgeMutedForData(d){var m=readCommBadgeMute();if(!m)return false;var pub=String((d&&d.publishedAt)||'');if(m.publishedAt&&pub)return String(m.publishedAt)===pub;if(!m.publishedAt&&m.at&&pub){var pubMs=new Date(pub).getTime();return pubMs&&pubMs<=m.at}return !!m.fallback}
+function muteCommBadgeForCurrentSchedule(){var pub=String((commData&&commData.publishedAt)||(schedulesData&&schedulesData.publishedAt)||(nowData&&nowData.publishedAt)||'');try{localStorage.setItem(commBadgeMuteKey(),JSON.stringify({publishedAt:pub,at:Date.now(),fallback:!pub}))}catch(e){}commBadgeCount=0;rebuildTabbars()}
+function setCommBadgeFromData(d){var rows=eligibleStaffRows((d&&d.rows)||[]);commBadgeCount=isCommBadgeMutedForData(d)?0:rows.filter(function(r){return r.viewStatus!=='Viewed current'}).length}
+var staffStatusExpandedV05418CM=false;
+function toggleStaffStatusV05418CM(){staffStatusExpandedV05418CM=!staffStatusExpandedV05418CM;renderCommunication()}
+function renderCommunication(){
+  var d=commData||{},rows=eligibleStaffRows(d.rows||[]),notViewed=rows.filter(function(r){return r.viewStatus!=='Viewed current'}),viewed=rows.length-notViewed.length;
+  var el=by('communicationBody');
+  var top=refreshStampHtml('communicate')+'<div class="read-strip"><strong>Read status</strong><span class="status">'+viewed+' viewed · '+notViewed.length+' not viewed</span></div>';
+  var shareActions='<div class="card"><h3>Share schedules</h3><button class="btn navy full" onclick="openSendModal(\'all\')">Send to all</button><button class="btn primary full" onclick="openSendModal(\'changed\')">Send changes</button><button class="btn secondary full" onclick="openSendModal(\'remind\')">Remind not viewed</button><button class="btn gray full" onclick="shareScheduleImage()">Download Schedule</button><div class="subtle">Last shared: '+esc(fmtDateTimeLA(d.lastCommunicatedAt)||'Not yet shared')+'</div></div>';
+  var announceCard='<div class="card"><h3>Announcement</h3><p class="subtle" style="margin:0 0 10px">A one-off message to staff, independent of any schedule.</p><button class="btn light full" onclick="openSendModal(\'announcement\')">Send announcement</button></div>';
+  var caret=staffStatusExpandedV05418CM?'\u25BE':'\u25B8';
+  var listHeader='<div class="card"><h3 style="cursor:pointer;display:flex;align-items:center;gap:6px" onclick="toggleStaffStatusV05418CM()"><span>'+caret+'</span> Staff status <span class="subtle" style="font-weight:600">('+rows.length+')</span></h3>'+(staffStatusExpandedV05418CM?(rows.length?rows.map(function(r){return '<div class="row-stack"><div class="row"><div class="stack"><span class="who">'+esc(r.staff||'')+'</span><span class="meta">'+esc(fmtDateTimeLA(r.portalLastViewed)||'Never viewed')+'</span></div><div class="stack" style="align-items:flex-end">'+(r.viewStatus==='Viewed current'?pill('Viewed','ok'):(r.viewStatus==='Viewed older'?pill('Older','warn'):pill('Not viewed','warn')))+(r.changed?pill('Changed','warn'):'')+'</div></div>'+quickShareButtonsHtml(r)+'</div>';}).join(''):empty('No eligible staff.')):'')+'</div>';
+  el.innerHTML=top+shareActions+announceCard+listHeader;
+}
+function prefToDelivery(r){var p=String((r&&r.preference)||'email').toLowerCase();if(p==='push'||p==='app')p='push';if(p!=='push'&&p!=='both')p='email';if(!r.hasEmail&&r.hasPushDevice&&p==='email')p='push';if(!r.hasPushDevice&&r.hasEmail&&p==='push')p='email';return p}
+function eligibleStaffForAnnouncementRows(rows){return (rows||[]).filter(function(r){return isActiveStaff(r)&&!isStaffAbsentName(r.staff)})}
+function openSendModal(kind){var rows=kind==='announcement'?eligibleStaffForAnnouncementRows((commData&&commData.rows)||[]):eligibleStaffRows((commData&&commData.rows)||[]);if(kind==='changed')rows=rows.filter(function(r){return r.changed});if(kind==='remind')rows=rows.filter(function(r){return r.viewStatus!=='Viewed current'});if(!rows.length){showToast(kind==='remind'?'Everyone has viewed the current schedule.':'No eligible staff for this send.');return}sendState={kind:kind,rows:rows.map(function(r){return Object.assign({},r,{_selected:true,_delivery:prefToDelivery(r)})})};var title={all:'Send to all',changed:'Send changes',remind:'Remind not viewed',announcement:'Send announcement'}[kind]||'Send';by('sendModalTitle').textContent=title;renderSendModal();by('sendModal').classList.add('show')}
+function closeSendModal(){by('sendModal').classList.remove('show');sendState=null}
+(function setupModalDrag(){
+  var backdrop, sheet, head, startY=0, currentY=0, dragging=false;
+  function onDown(e){
+    backdrop=by('sendModal'); if(!backdrop||!backdrop.classList.contains('show'))return;
+    sheet=backdrop.querySelector('.modal'); if(!sheet)return;
+    startY=(e.touches?e.touches[0].clientY:e.clientY);
+    currentY=0; dragging=true;
+    sheet.classList.add('dragging');
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onUp);
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  }
+  function onMove(e){
+    if(!dragging)return;
+    var y=(e.touches?e.touches[0].clientY:e.clientY);
+    currentY=Math.max(0,y-startY); // only allow downward drag, clamp upward drag to 0
+    if(e.cancelable)e.preventDefault();
+    sheet.style.transform='translateY('+currentY+'px)';
+  }
+  function onUp(){
+    if(!dragging)return;
+    dragging=false;
+    sheet.classList.remove('dragging');
+    document.removeEventListener('touchmove',onMove);
+    document.removeEventListener('touchend',onUp);
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    var dismiss=currentY>110; // dragged past ~110px -- treat as intentional dismiss
+    sheet.style.transform='';
+    if(dismiss)closeSendModal();
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    head=document.querySelector('#sendModal .modal-head');
+    if(!head)return;
+    head.addEventListener('touchstart',onDown,{passive:true});
+    head.addEventListener('mousedown',onDown);
+  });
+  if(document.readyState!=='loading'){
+    head=document.querySelector('#sendModal .modal-head');
+    if(head){head.addEventListener('touchstart',onDown,{passive:true});head.addEventListener('mousedown',onDown);}
+  }
+})();
+function renderDeliverySeg(i,val){return '<div class="mini-seg"><button class="'+(val==='email'?'active':'')+'" onclick="setSendDelivery('+i+',\'email\')">Email</button><button class="'+(val==='push'?'active':'')+'" onclick="setSendDelivery('+i+',\'push\')">App</button><button class="'+(val==='both'?'active':'')+'" onclick="setSendDelivery('+i+',\'both\')">Both</button></div>'}
+function deliveryPrefLabel(r){var p=String((r&&r.preference)||'email').toLowerCase();if(p==='push'||p==='app')return'App';if(p==='both')return'Both';return'Email'}
+function deliveryCapabilitiesLabel(r){var a=[];if(r&&r.hasEmail)a.push('Email');if(r&&r.hasPushDevice)a.push('App');return a.length?'Available: '+a.join(' · '):'No delivery method on file'}
+function renderSendModal(){var s=sendState;if(!s)return;var intro=s.kind==='announcement'?'<input class="input" id="sendSubject" placeholder="Announcement subject" value="Support Schedules announcement"><textarea class="input" id="sendMessage" placeholder="Announcement message"></textarea>':(s.kind==='remind'?'<p class="send-note">Select staff to remind and adjust delivery method before sending.</p>':'<p class="send-note">Select staff and adjust delivery method before sending.</p>');var rows=s.rows.map(function(r,i){return '<div class="send-row"><input type="checkbox" '+(r._selected?'checked':'')+' onchange="setSendSelected('+i+',this.checked)"><div class="send-main"><div class="send-name-row"><div class="who truncate">'+esc(r.staff||'')+'</div><span class="pref-pill">Pref: '+esc(deliveryPrefLabel(r))+'</span></div><div class="send-capabilities">'+esc(deliveryCapabilitiesLabel(r))+'</div>'+renderDeliverySeg(i,r._delivery)+'</div></div>'}).join('');by('sendModalBody').innerHTML=intro+rows;by('sendModalActions').innerHTML='<div class="btn-row three"><button class="btn navy" onclick="submitSend(\'preferred\')">Send</button><button class="btn secondary" onclick="submitSend(\'email\')">Send via Email</button><button class="btn primary" onclick="submitSend(\'push\')">Push via App</button></div>'}
+function setSendSelected(i,on){if(sendState&&sendState.rows[i])sendState.rows[i]._selected=!!on}
+function setSendDelivery(i,val){if(sendState&&sendState.rows[i]){sendState.rows[i]._delivery=val;renderSendModal()}}
+function selectedSendRows(){return (sendState&&sendState.rows||[]).filter(function(r){return r._selected})}
+function submitSend(force){var rows=selectedSendRows();if(!rows.length){showToast('Select at least one staff member.');return}var kind=sendState.kind;if(kind==='all'||kind==='changed')return sendScheduleRows(rows,kind,force);var subject=kind==='remind'?'Please view your current schedule':(by('sendSubject')&&by('sendSubject').value||'Support Schedules announcement');var message=kind==='remind'?'Please open Support Schedules to review your current schedule.':(by('sendMessage')&&by('sendMessage').value||'').trim();if(!message){showToast('Enter an announcement message.');return}sendBroadcastRows(rows,subject,message,force)}
+function sendScheduleRows(rows,kind,force){var body={school:selectedSchoolId,mode:kind,staffKeys:rows.map(function(r){return r.key||r.staff})};if(force==='email'||force==='push')body.forceDelivery=force;else body.deliveryOverrides=rows.reduce(function(o,r){o[r.key||r.staff]=r._delivery;return o},{});fetchJson('/api/communication/send-preferred-v018',{method:'POST',body:JSON.stringify(body)}).then(function(){showToast('Schedule communication sent.');closeSendModal();loadCommunication();refreshBadges()}).catch(function(e){if(e&&e.message!=='Signed out')showToast('Could not send: '+e.message)})}
+function toUnicodeBold(str){
+  var out='';
+  for(var i=0;i<str.length;i++){
+    var c=str.charCodeAt(i);
+    if(c>=65&&c<=90)out+=String.fromCodePoint(0x1D400+(c-65));
+    else if(c>=97&&c<=122)out+=String.fromCodePoint(0x1D41A+(c-97));
+    else if(c>=48&&c<=57)out+=String.fromCodePoint(0x1D7CE+(c-48));
+    else out+=str[i];
+  }
+  return out;
+}
+function toUnicodeItalic(str){
+  var out='';
+  for(var i=0;i<str.length;i++){
+    var c=str.charCodeAt(i);
+    if(c===104){out+='\u210E';continue;}
+    if(c>=65&&c<=90)out+=String.fromCodePoint(0x1D434+(c-65));
+    else if(c>=97&&c<=122)out+=String.fromCodePoint(0x1D44E+(c-97));
+    else out+=str[i];
+  }
+  return out;
+}
+function buildSmsScheduleBody(scheduleLines){
+  var timePattern=/^((?:\d{1,2}:\d{2}\s*(?:AM|PM)?|\d{1,2}\s*(?:AM|PM))(?:\s*[-\u2013\u2014]\s*(?:\d{1,2}:\d{2}\s*(?:AM|PM)?|\d{1,2}\s*(?:AM|PM)))?)/i;
+  var stripPhrasePattern=/\s*scheduled\s+(?:15|30)\s*minute\s+(?:break|lunch)\s*[\u00b7-]?\s*/i;
+  return (scheduleLines||[])
+    .map(function(l){return parseScheduleLine(l);})
+    .map(function(p){
+      var detail=String(p.detail||'');
+      // Strip the redundant phrase wherever it appears -- the period name (Break/Lunch)
+      // already conveys this; keep whatever useful info (covering staff, location) remains.
+      detail=detail.replace(stripPhrasePattern,'').replace(/^[\s\u00b7-]+|[\s\u00b7-]+$/g,'').trim();
+      return {period:p.period, detail:detail};
+    })
+    .filter(function(p){ return !!p.detail; })
+    .map(function(p){
+      var boldPeriod=toUnicodeBold(p.period||'');
+      var detail=String(p.detail||'');
+      var timeMatch=detail.match(timePattern);
+      if(timeMatch){
+        var timePart=timeMatch[1];
+        var rest=detail.slice(timePart.length).replace(/^:\s*/,'');
+        return boldPeriod+'\n'+toUnicodeItalic(timePart)+(rest?': '+rest:'');
+      }
+      return boldPeriod+(detail?': '+detail:'');
+    })
+    .join('\n\n');
+}
+function quickSendStaffSchedule(row,method){
+  var k=String(row.key||row.staff||'').replace(/[^a-zA-Z0-9]/g,'_');
+  if(__lpFiredKey===(k+'|'+method)){__lpFiredKey=null;return;}
+  if(method==='sms'){
+    var lines=splitScheduleLines(row);
+    var baseText=lines.length?buildSmsScheduleBody(lines):'No schedule line available.';
+    var phoneDigits=String(row.phone||'').replace(/\D/g,'');
+    var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+    function openSms(text){
+      // iOS and Android expect different separators before body= on an sms: link;
+      // combining both is a widely-used compatibility workaround. With no phone number,
+      // the address portion is simply omitted -- the app still opens with the body
+      // pre-filled, letting the admin pick or type a recipient manually.
+      var smsUrl='sms:'+phoneDigits+(isIOS?'&':'?')+'body='+encodeURIComponent(text);
+      try{ window.location.href=smsUrl; }
+      catch(e){
+        if(navigator.clipboard&&navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(function(){showToast('Schedule copied. Paste into your SMS app.')});
+        }
+      }
+    }
+    fetchJson('/api/admin-app/sms-short-link',{method:'POST',body:JSON.stringify({school:selectedSchoolId,staff:row.key||row.staff})}).then(function(j){
+      openSms(baseText+'\n\n'+j.shortUrl);
+    }).catch(function(){
+      // Link generation failed -- still send the schedule text itself rather than blocking entirely.
+      openSms(baseText);
+    });
+    return;
+  }
+  if(method==='email'&&!row.hasEmail){showToast('No email on file for '+(row.staff||'this staff member')+'.');return;}
+  if(method==='push'&&!row.hasPushDevice){showToast((row.staff||'This staff member')+' has not paired the app.');return;}
+  fetchJson('/api/communication/send-preferred-v018',{method:'POST',body:JSON.stringify({school:selectedSchoolId,mode:'all',staffKeys:[row.key||row.staff],forceDelivery:method})}).then(function(j){
+    // The server's ok:true doesn't distinguish an actual send from "not paired" --
+    // check the real counts rather than trusting HTTP success alone.
+    var actuallySent=method==='push'?(j.push&&j.push.sent>0):(j.email&&j.email.sent>0);
+    if(actuallySent){
+      showToast('Sent to '+(row.staff||'staff member')+' via '+(method==='push'?'app':'email')+'.');
+    } else if(method==='push'&&j.push&&j.push.notPaired>0){
+      showToast((row.staff||'This staff member')+' has not paired the app.');
+    } else if(method==='email'&&j.email&&j.email.skipped>0){
+      showToast('No email on file for '+(row.staff||'this staff member')+'.');
+    } else {
+      showToast('Could not confirm delivery to '+(row.staff||'this staff member')+'.');
+    }
+    refreshBadges();
+  }).catch(function(e){if(e&&e.message!=='Signed out')showToast('Could not send: '+e.message)});
+}
+var quickShareRowsByKey={};
+var __lpTimer=null,__lpFiredKey=null;
+function lpStart(k,method,el){
+  __lpFiredKey=null;
+  clearTimeout(__lpTimer);
+  if(el)el.classList.add('lp-pressing');
+  __lpTimer=setTimeout(function(){
+    __lpFiredKey=k+'|'+method;
+    if(el)el.classList.remove('lp-pressing');
+    var row=quickShareRowsByKey[k];
+    if(!row)return;
+    if(method==='sms')openSmsBlank(row);
+    else if(method==='push')openStaffAnnouncementModal(row);
+  },550);
+}
+function lpEnd(el){clearTimeout(__lpTimer);if(el)el.classList.remove('lp-pressing');}
+function openSmsBlank(row){
+  var phoneDigits=String(row.phone||'').replace(/\D/g,'');
+  var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  var smsUrl='sms:'+phoneDigits+(isIOS?'&':'?')+'body=';
+  try{ window.location.href=smsUrl; }catch(e){}
+}
+function openStaffAnnouncementModal(row){
+  sendState={kind:'announcement',rows:[Object.assign({},row,{_selected:true,_delivery:prefToDelivery(row)})]};
+  by('sendModalTitle').textContent='Message '+(row.staff||'staff member');
+  renderSendModal();
+  by('sendModal').classList.add('show');
+}
+function quickShareButtonsHtml(row){
+  var k=String(row.key||row.staff||'').replace(/[^a-zA-Z0-9]/g,'_');
+  quickShareRowsByKey[k]=row;
+  var emailDisabled=row.hasEmail?'':' disabled title="No email on file"';
+  var pushDisabled=row.hasPushDevice?'':' disabled title="App not paired"';
+  var smsTitle=row.phone?'':' title="No phone number on file -- opens unaddressed"';
+  var pushPress=' ontouchstart="lpStart(&quot;'+k+'&quot;,&quot;push&quot;,this)" ontouchend="lpEnd(this)" ontouchcancel="lpEnd(this)" onmousedown="lpStart(&quot;'+k+'&quot;,&quot;push&quot;,this)" onmouseup="lpEnd(this)" onmouseleave="lpEnd(this)"';
+  var smsPress=' ontouchstart="lpStart(&quot;'+k+'&quot;,&quot;sms&quot;,this)" ontouchend="lpEnd(this)" ontouchcancel="lpEnd(this)" onmousedown="lpStart(&quot;'+k+'&quot;,&quot;sms&quot;,this)" onmouseup="lpEnd(this)" onmouseleave="lpEnd(this)"';
+  return '<div class="quick-share"><button class="quick-share-btn" onclick="quickSendStaffSchedule(quickShareRowsByKey[&quot;'+k+'&quot;],&quot;email&quot;)"'+emailDisabled+'>Email</button><button class="quick-share-btn" onclick="quickSendStaffSchedule(quickShareRowsByKey[&quot;'+k+'&quot;],&quot;push&quot;)"'+pushDisabled+pushPress+'>App</button><button class="quick-share-btn" onclick="quickSendStaffSchedule(quickShareRowsByKey[&quot;'+k+'&quot;],&quot;sms&quot;)"'+smsTitle+smsPress+'>SMS</button></div>';
+}
+function broadcastPayload(staffNames,subject,message,delivery){var body={school:selectedSchoolId,staffNames:staffNames,subject:subject,message:message};if(delivery==='email'){body.sendEmail=true;body.sendPush=false}else if(delivery==='push'){body.sendEmail=false;body.sendPush=true}else if(delivery==='both'){body.sendEmail=true;body.sendPush=true}else{body.mode='preferred'}return body}
+function sendBroadcastRows(rows,subject,message,force){var calls=[];if(force==='email'||force==='push'){calls=[fetchJson('/api/v05418y/broadcast',{method:'POST',body:JSON.stringify(broadcastPayload(rows.map(function(r){return r.staff}),subject,message,force))})]}else{['email','push','both'].forEach(function(d){var group=rows.filter(function(r){return r._delivery===d});if(group.length)calls.push(fetchJson('/api/v05418y/broadcast',{method:'POST',body:JSON.stringify(broadcastPayload(group.map(function(r){return r.staff}),subject,message,d))}))})}Promise.all(calls).then(function(){showToast('Message sent.');closeSendModal();loadCommunication();refreshBadges()}).catch(function(e){if(e&&e.message!=='Signed out')showToast('Could not send: '+e.message)})}
+function loadIssues(){var el=by('issuesBody');el.innerHTML=empty('Loading issues…');fetchJson('/api/admin-app/issues'+schoolQS()).then(function(j){issuesData=j.issues||[];markRefreshed('issues');renderIssues()}).catch(function(e){if(e.message!=='Signed out')el.innerHTML=empty(e.message)})}
+function dismissedIssueMap(){try{return JSON.parse(localStorage.getItem('gaAdminAppDismissedIssues:'+selectedSchoolId)||'{}')}catch(e){return{}}}
+function saveDismissedIssueMap(m){try{localStorage.setItem('gaAdminAppDismissedIssues:'+selectedSchoolId,JSON.stringify(m||{}))}catch(e){}}
+function issueKey(i){return btoa(unescape(encodeURIComponent([i.severity||'',i.title||'',i.detail||''].join('|')))).slice(0,80)}
+function isCommunicationIssue(i){var t=String([i&&i.title,i&&i.detail,i&&i.action].filter(Boolean).join(' ')).toLowerCase();return /viewed current schedule|not viewed|read status|communication|send reminders|send changes|change-only/.test(t)}
+function isAbsenceIssue(i){var t=String((i&&i.title)||'').toLowerCase();return /absence.*today|absent/.test(t)}
+function activeIssues(){var dis=dismissedIssueMap();return (issuesData||[]).filter(function(i){return i.severity!=='Done'&&!dis[issueKey(i)]})}
+function renderIssues(){var el=by('issuesBody');var rows=activeIssues();issueBadgeCount=rows.length;todayBadgeCount=rows.filter(isAbsenceIssue).length;rebuildTabbars();if(!rows.length){el.innerHTML=refreshStampHtml('issues')+empty('No urgent issues found.');return}el.innerHTML=refreshStampHtml('issues')+rows.map(function(i){var key=issueKey(i),cls=i.severity==='High'?' high':(i.severity==='Done'?' done':'');return '<div class="issue-swipe-wrap"><div class="issue-swipe-action">Swipe left to clear</div><div class="issue-card'+cls+'" data-issue-key="'+esc(key)+'"><div class="who">'+esc(i.title||'Issue')+'</div><div class="meta">'+esc(i.detail||'')+'</div>'+(i.action?'<div class="meta"><b>Action:</b> '+esc(i.action)+'</div>':'')+'<button class="issue-clear" onclick="dismissIssue(\''+esc(key)+'\')">Clear</button></div></div>'}).join('');setupIssueSwipe()}
+function dismissIssue(key){var issue=(issuesData||[]).find(function(i){return issueKey(i)===key});var m=dismissedIssueMap();m[key]=Date.now();saveDismissedIssueMap(m);if(issue&&isCommunicationIssue(issue))muteCommBadgeForCurrentSchedule();renderIssues()}
+function setupIssueSwipe(){document.querySelectorAll('.issue-card[data-issue-key]').forEach(function(card){var sx=0,ready=false;var reset=function(){card.style.transform='';card.classList.remove('swiping','swipe-ready');var a=card.parentElement&&card.parentElement.querySelector('.issue-swipe-action');if(a)a.textContent='Swipe left to clear'};card.ontouchstart=function(e){sx=e.touches&&e.touches[0]?e.touches[0].clientX:0;ready=false;card.style.transition='none'};card.ontouchmove=function(e){if(!sx||!e.touches||!e.touches[0])return;var dx=e.touches[0].clientX-sx;if(dx>=0)return reset();var w=window.innerWidth||document.documentElement.clientWidth||360;var threshold=Math.min(260,Math.max(170,Math.round(w*.46)));var max=Math.min(Math.round(w*.56),threshold+70);var shift=Math.max(dx,-max);ready=(-dx)>=threshold;card.style.transform='translateX('+shift+'px)';card.classList.add('swiping');card.classList.toggle('swipe-ready',ready);var a=card.parentElement&&card.parentElement.querySelector('.issue-swipe-action');if(a)a.textContent=ready?'Release to clear':'Keep swiping'};card.ontouchend=function(){var key=card.getAttribute('data-issue-key');card.style.transition='';if(ready){dismissIssue(key)}else reset();sx=0;ready=false};card.ontouchcancel=function(){card.style.transition='';reset();sx=0;ready=false}})}
+function refreshBadges(){Promise.all([fetchJson('/api/admin-app/communication-status'+schoolQS()).catch(function(){return null}),fetchJson('/api/admin-app/absences'+schoolQS()).catch(function(){return absData||{staffAbsences:[]}}),fetchJson('/api/admin-app/issues'+schoolQS()).catch(function(){return null})]).then(function(a){if(a[1])absData=a[1];if(a[0]){commData=a[0];setCommBadgeFromData(commData)}if(a[2]){issuesData=a[2].issues||[];issueBadgeCount=activeIssues().length;todayBadgeCount=activeIssues().filter(isAbsenceIssue).length}rebuildTabbars()})}
+function renderSettings(){
+  if(bootstrapData){var u=bootstrapData.user||{};by('settingsUserName').textContent=u.name||'Admin';by('settingsUserEmail').textContent=u.email||''}
+  renderBiometricSetting();
+  var list=by('schoolPickerList');var schools=(bootstrapData&&bootstrapData.schools)||[];
+  if(!schools.length){list.innerHTML='<div class="school-option"><span>No schools available</span></div>';return}
+  list.innerHTML=schools.map(function(s){var id=String(s.campusId||'');return '<div class="school-option" onclick="selectSchool(\''+esc(id).replace(/'/g,"\\'")+'\')"><span>'+esc(s.campusName||id)+'</span>'+(id===selectedSchoolId?'<span style="color:var(--blue);font-weight:900">✓</span>':'')+'</div>'}).join('')
+}
+function renderBiometricSetting(){
+  var el=by('biometricSettingsRow');if(!el)return;
+  if(!window.PublicKeyCredential){el.innerHTML='<div class="settings-row"><span>Face ID / Touch ID</span><span class="val">Not supported on this device</span></div>';return}
+  el.innerHTML='<div class="settings-row"><span>Face ID / Touch ID</span><span class="val" id="biometricToggleWrap">…</span></div>';
+  fetchJson('/api/admin-app/biometric/status').then(function(r){
+    var enabled=!!(r&&r.enabled);
+    by('biometricToggleWrap').innerHTML=enabled
+      ?'<button class="quick-share-btn" onclick="disableBiometric()">Turn off</button>'
+      :'<button class="quick-share-btn" onclick="enableBiometric()">Turn on</button>';
+  }).catch(function(){by('biometricToggleWrap').textContent='Unavailable'});
+}
+function enableBiometric(){
+  fetchJson('/api/admin-app/biometric/register-options',{method:'POST'}).then(function(r){
+    var opts=r.options;
+    var publicKey={
+      rp:opts.rp,
+      user:{id:base64urlToBuffer(opts.user.id),name:opts.user.name,displayName:opts.user.displayName},
+      challenge:base64urlToBuffer(opts.challenge),
+      pubKeyCredParams:opts.pubKeyCredParams,
+      authenticatorSelection:opts.authenticatorSelection,
+      timeout:opts.timeout,
+      attestation:opts.attestation
+    };
+    return navigator.credentials.create({publicKey:publicKey});
+  }).then(function(cred){
+    var body={
+      attestationObject:bufferToBase64(cred.response.attestationObject),
+      clientDataJSON:bufferToBase64(cred.response.clientDataJSON)
+    };
+    return fetchJson('/api/admin-app/biometric/register-verify',{method:'POST',body:JSON.stringify(body)});
+  }).then(function(){
+    showToast('Face ID / Touch ID enabled.');
+    renderBiometricSetting();
+  }).catch(function(e){showToast((e&&e.message)||'Could not enable Face ID / Touch ID.')});
+}
+function disableBiometric(){
+  verifyBiometric().then(function(){
+    return fetchJson('/api/admin-app/biometric/disable',{method:'POST'});
+  }).then(function(){
+    showToast('Face ID / Touch ID turned off.');
+    renderBiometricSetting();
+  }).catch(function(e){showToast((e&&e.message)||'Could not verify. Face ID / Touch ID was not turned off.')});
+}
+function selectSchool(id){selectedSchoolId=id;saveSelectedSchool(id);renderSettings();showToast('Switched to '+currentSchoolName()+'.');loadToday();refreshBadges()}
+if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('service-worker.js?v=05418ec').catch(function(){})})}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Support Schedules</title>
+<script>
+  (function(){
+    // v0.54.18cl: the App QR setup token must survive Add to Home Screen. Browsers that
+    // install from manifest.start_url need a setup-aware manifest before the install sheet
+    // opens, not after the main app JS has already booted.
+    var href = 'manifest.json';
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var hasSetup = params.get('pairSetup') === '1' || params.has('setupToken') || params.has('setupStaff') || params.has('setupSchool');
+      if (hasSetup) href = '/app/setup-manifest.json' + (window.location.search || '');
+    } catch (e) {}
+    document.write('<link rel="manifest" href="' + href.replace(/"/g, '%22') + '">');
+  })();
+</script>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Schedules">
+<meta name="theme-color" content="#0A2540">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100vh; height: 100dvh; overflow: hidden; }
+  #phone-frame { height: 100%; min-height: 100vh; min-height: 100dvh; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    background: #f2f2f7;
+    color: #000;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { position: relative; height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; background: #f2f2f7; }
+  .screen.active { display: flex; }
+  /* Safe-area padding is baked directly into each screen's own padding rule below (e.g.
+     #scr-pair, .topbar, .profile-hero) rather than a combinable .safe-top class -- a
+     combinable class was tried first and silently broke: ID selectors and same-specificity
+     shorthand rules defined later in the stylesheet were overriding its padding-top with no
+     visual warning, which is exactly what caused content to sit under the status bar. */
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* ---- pairing screen ---- */
+  #scr-pair { padding: calc(env(safe-area-inset-top, 20px) + 24px) 28px calc(env(safe-area-inset-bottom, 0px) + 20px); text-align: center; overflow-y: auto; align-items: center; }
+  .app-icon { width: 76px; height: 76px; border-radius: 20px; overflow: hidden; margin: 0 auto 20px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(10,37,64,.18); }
+  .app-icon img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .app-icon svg { width: 38px; height: 38px; }
+  #scr-pair h1 { font-size: 21px; font-weight: 600; margin: 0 0 6px; }
+  #scr-pair p.sub { font-size: 14px; color: #6b6b70; margin: 0 0 24px; line-height: 1.5; max-width: 280px; margin-left: auto; margin-right: auto; }
+  .otp-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+  .otp-box { width: 42px; height: 54px; text-align: center; font-size: 22px; font-weight: 600; border: 1.5px solid #d1d1d6; border-radius: 10px; background: #fff; color: #000; }
+  .otp-box:focus { outline: none; border-color: #007AFF; }
+  .otp-box.filled { border-color: #007AFF; }
+  #pairError { font-size: 12px; color: #d70015; margin: 6px 0 16px; min-height: 14px; max-width: 280px; margin-left: auto; margin-right: auto; line-height: 1.4; }
+  .btn-primary { width: 100%; max-width: 280px; background: #007AFF; color: #fff; border: 0; border-radius: 12px; padding: 15px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform .1s cubic-bezier(.2,.8,.4,1), opacity .1s ease; -webkit-tap-highlight-color: transparent; }
+  .btn-primary:active:not(:disabled) { transform: scale(.96); opacity: .85; }
+  .btn-primary:active { opacity: .7; }
+  .btn-primary:disabled { background: #c7c7cc; }
+  #pairFooter { font-size: 12px; color: #a1a1a6; margin-top: 18px; padding-top: 4px; }
+
+  /* ---- install-first / a2hs coaching screen ---- */
+  #scr-install { padding: calc(env(safe-area-inset-top, 20px) + 24px) 28px calc(env(safe-area-inset-bottom, 0px) + 20px); text-align: center; overflow-y: auto; }
+  .step-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; text-align: left; display: flex; gap: 12px; align-items: flex-start; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; background: #007AFF; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-card p { margin: 0; font-size: 14px; line-height: 1.4; color: #1c1c1e; }
+  .step-card p.hint { color: #6b6b70; font-size: 12px; margin-top: 3px; }
+
+  /* ---- top bar (in-app) ---- */
+  .topbar { padding: calc(env(safe-area-inset-top, 20px) + 6px) 20px 10px; flex-shrink: 0; }
+  .topbar .eyebrow { font-size: 13px; color: #6b6b70; margin: 0; }
+  .topbar h1 { font-size: 26px; font-weight: 700; margin: 2px 0 0; }
+  .topbarRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .metaInfo { text-align: right; font-size: 11px; line-height: 1.5; color: #c2c7d0; flex-shrink: 0; padding-top: 2px; white-space: nowrap; }
+
+  /* ---- view segment pills (My / Staff / Students / Breaks / Regular) ---- */
+  /* View picker: a single button showing the current view, opening a dropdown listing every
+     option at once. Replaces a horizontally-scrolling pill row -- with up to 5 views, some
+     were getting cut off screen-edge with no visual cue to scroll for them. This guarantees
+     every option is visible the moment the picker opens, no discovery-by-scrolling needed. */
+  .view-picker-wrap { padding: 0 20px 10px; flex-shrink: 0; position: relative; }
+  .view-picker-row { display: flex; align-items: stretch; gap: 8px; }
+  .view-picker-btn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; border: 0; background: #fff; color: #000; font-size: 15px; font-weight: 600; padding: 12px 14px; border-radius: 12px; }
+  .view-picker-btn svg { width: 18px; height: 18px; color: #8a8a8e; transition: transform .15s ease; flex-shrink: 0; }
+  .view-picker-btn.open svg { transform: rotate(180deg); }
+  .refresh-btn { flex: 0 0 auto; width: 46px; border: 0; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #007AFF; }
+  .refresh-btn svg { width: 19px; height: 19px; transition: transform .5s ease; }
+  .refresh-btn.spinning svg { animation: refreshSpin .7s linear infinite; }
+  @keyframes refreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .view-picker-menu { display: none; position: absolute; left: 20px; right: 20px; top: calc(100% - 4px); background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.16); z-index: 10; overflow: hidden; }
+  .view-picker-menu.open { display: block; }
+  .view-picker-option { width: 100%; text-align: left; border: 0; background: #fff; color: #000; font-size: 15px; padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .view-picker-option + .view-picker-option { border-top: 0.5px solid #e5e5ea; }
+  .view-picker-option.active { color: #007AFF; font-weight: 600; }
+  .view-picker-option .check { width: 16px; height: 16px; }
+  .view-picker-backdrop { display: none; position: absolute; inset: 0; z-index: 9; }
+  .view-picker-backdrop.open { display: block; }
+
+  /* ---- portal content embed: styles matching the Staff Portal's own real markup,
+         which the app fetches and injects as-is (see fetchView()). Scoped under
+         .portal-embed so it can't leak into or be affected by the app's own styles. ---- */
+  .portal-embed { flex: 1; overflow-y: auto; padding: 0 16px 16px; -webkit-overflow-scrolling: touch; }
+  .portal-embed .card { background: #fff; border: none; border-radius: 14px; padding: 14px; margin: 0 0 12px; box-shadow: none; }
+  .portal-embed .card h2 { display: none; }
+  /* The real My Schedule renderer shows the staff member's name again next to the "My
+     Schedule" heading (useful on the standalone Staff Portal page, which has no other
+     greeting) -- redundant here since the app already shows "Hi, [name]" above. Confirmed
+     .stamp is used nowhere else in the underlying rendering, so this is safe to hide only
+     in the app's embedded context without touching the shared function other pages rely on. */
+  .portal-embed .card h2 .stamp { display: none; }
+  .portal-embed .muted { color: #8a8a8e; font-size: 13px; }
+  .portal-embed .mCard { border: none; border-radius: 12px; background: #f8f8fa; padding: 12px; margin: 0 0 8px; }
+  .portal-embed .mTitle { font-size: 14px; margin-bottom: 6px; }
+  .portal-embed .blockName { font-weight: 700 !important; }
+  .portal-embed .blockTime { font-weight: 400 !important; font-style: normal !important; color: #6b6b70 !important; font-size: 12px; }
+  .portal-embed .mRow { display: grid; grid-template-columns: 90px 1fr; gap: 8px; border-top: 1px solid #e5e5ea; padding: 6px 0; font-size: 13px; }
+  .portal-embed .mPeriod { font-weight: 600; color: #3c3c43; }
+  .portal-embed .free { color: #8a8a8e; font-style: italic; }
+  .portal-embed .need { color: #d70015; font-weight: 600; }
+  .portal-embed .rest { border-top: 1px solid #e5e5ea; margin-top: 4px; padding-top: 4px; color: #3c3c43; font-size: 12px; }
+  .portal-embed .cover { display: block; color: #1a8a3f; font-weight: 600; margin-top: 3px; font-size: 12px; }
+  .portal-embed .studentRoomGroup { margin: 0 0 8px; }
+  .portal-embed .studentLink { font-weight: 400 !important; color: #000; text-decoration: none; }
+  .portal-embed h3 { font-size: 13px; font-weight: 700; color: #6b6b70; text-transform: uppercase; letter-spacing: .02em; margin: 14px 0 8px; }
+  .portal-embed .scroll { overflow-x: auto; border-radius: 12px; background: #fff; -webkit-overflow-scrolling: touch; }
+  .portal-embed .scheduleTable { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
+  .portal-embed .scheduleTable th, .portal-embed .scheduleTable td { border-bottom: 1px solid #e5e5ea; border-right: 1px solid #e5e5ea; padding: 7px 8px; text-align: left; vertical-align: top; }
+  .portal-embed .scheduleTable th { background: #f8f8fa; font-size: 11px; white-space: nowrap; }
+  .portal-embed .scheduleTable th:first-child, .portal-embed .scheduleTable td:first-child { position: sticky; left: 0; background: #fff; font-weight: 600; min-width: 140px; }
+  .portal-embed .scheduleTable th:first-child { background: #f8f8fa; }
+  .portal-embed .regularPills { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+  .portal-embed .regularPills a { display: inline-block; border: 0; background: #e5e5ea; color: #3c3c43; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; text-decoration: none; }
+  .portal-embed .regularPills a.active { background: #007AFF; color: #fff; }
+  .portal-embed .desktopTable { display: none; }
+  .portal-embed .mobileCards { display: block; }
+  .portal-embed-loading, .portal-embed-error { padding: 40px 20px; text-align: center; color: #8a8a8e; font-size: 14px; }
+  .portal-embed-error { color: #d70015; }
+
+  /* ---- absence form ---- */
+  .form-scroll { flex: 1; overflow-y: auto; padding: 0 20px 20px; -webkit-overflow-scrolling: touch; }
+  .field-row { margin-bottom: 14px; }
+  .field-row label { font-size: 12px; font-weight: 600; color: #6b6b70; display: block; margin-bottom: 5px; }
+  .field-row input, .field-row select, .field-row textarea { width: 100%; border: 1px solid #d1d1d6; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #000; font-family: inherit; }
+  .field-row input[type=date] { -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; }
+  .field-row textarea { min-height: 70px; resize: vertical; }
+  .field-row-inline { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 14px; }
+  .partial-fields { display: none; gap: 10px; }
+  .partial-fields.show { display: grid; grid-template-columns: 1fr 1fr; }
+  #absenceMsg { font-size: 13px; margin: 4px 0 12px; min-height: 16px; }
+  #absenceMsg.ok { color: #1a8a3f; }
+  #absenceMsg.err { color: #d70015; }
+
+  /* ---- profile ---- */
+  .profile-hero { text-align: center; padding: calc(env(safe-area-inset-top, 20px) + 24px) 20px 8px; flex-shrink: 0; }
+  .profile-scroll { flex: 1; overflow-y: auto; padding: 0 20px 20px; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; }
+  .avatar { width: 68px; height: 68px; border-radius: 50%; background: #e6f1fb; color: #0c447c; font-size: 24px; font-weight: 600; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .profile-hero h2 { font-size: 19px; font-weight: 600; margin: 0; }
+  .profile-hero p { font-size: 13px; color: #6b6b70; margin: 2px 0 0; }
+  .settings-list { padding: 0 20px; margin-top: 16px; }
+  .settings-row { background: #fff; padding: 13px 14px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .settings-row:first-child { border-radius: 12px 12px 0 0; }
+  .settings-row:last-child { border-radius: 0 0 12px 12px; }
+  .settings-row + .settings-row { border-top: 0.5px solid #e5e5ea; }
+  .settings-row .val { color: #8a8a8e; font-size: 13px; text-align: right; }
+  .profile-section { padding: 0 20px; margin-top: 18px; }
+  .profile-section-label { display: block; font-size: 12px; font-weight: 700; color: #6b6b70; text-transform: uppercase; letter-spacing: .02em; margin-bottom: 8px; }
+  .profile-email-row { display: flex; gap: 8px; }
+  .profile-email-row input { flex: 1; min-width: 0; height: 40px; border: 1px solid #d1d1d6; border-radius: 10px; padding: 0 12px; font-size: 15px; background: #fff; color: #000; }
+  .profile-email-row input:disabled { background: #f2f2f7; color: #8a8a8e; }
+  .btn-inline { flex-shrink: 0; height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #007AFF; color: #fff; font-size: 14px; font-weight: 600; transition: transform .1s cubic-bezier(.2,.8,.4,1), opacity .1s ease; -webkit-tap-highlight-color: transparent; }
+  .btn-inline:active:not(:disabled) { transform: scale(.94); opacity: .85; }
+  .profile-hint + .btn-inline { margin-top: 10px; }
+  .btn-inline:disabled { background: #c7c7cc; }
+  .profile-hint { font-size: 12px; color: #8a8a8e; margin: 6px 2px 0; min-height: 14px; }
+  .profile-hint.err { color: #d70015; }
+  .profile-hint.ok { color: #1a8a3f; }
+  .pref-toggle-row { display: flex; gap: 8px; }
+  .pref-toggle { flex: 1; height: 40px; border: 1px solid #d1d1d6; border-radius: 10px; background: #fff; color: #3c3c43; font-size: 14px; font-weight: 600; }
+  .pref-toggle.active { background: #007AFF; border-color: #007AFF; color: #fff; }
+  .danger-btn { width: calc(100% - 40px); margin: 20px 20px 0; background: #fff; color: #d70015; border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 500; }
+  .btn-secondary-full { width: calc(100% - 40px); margin: 16px 20px 0; background: #eef5ff; color: #007AFF; border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 600; transition: transform .1s cubic-bezier(.2,.8,.4,1), opacity .1s ease; -webkit-tap-highlight-color: transparent; }
+  .btn-secondary-full:active:not(:disabled) { transform: scale(.96); opacity: .85; }
+  .btn-secondary-full:disabled { opacity: .6; }
+  .notif-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 20px 10px; padding: 10px 12px; border-radius: 12px; font-size: 13px; }
+  .announcement-banner { margin: 0 20px 10px; padding: 12px 14px; border-radius: 14px; background: #eef5ff; border: 1px solid #bfdcff; }
+  .announcement-banner b { display: block; font-size: 13px; color: #0c3a73; margin-bottom: 2px; }
+  .announcement-banner span { display: block; font-size: 13px; color: #1c3f66; line-height: 1.4; }
+  .announcement-banner + .announcement-banner { margin-top: -4px; }
+  .notif-banner.warn { background: #fff3cd; color: #7a4a00; }
+  .notif-banner button { flex-shrink: 0; border: 0; background: #fff; color: #7a4a00; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
+
+  /* ---- tab bar ---- */
+  .tabbar { display: flex; border-top: 0.5px solid #d1d1d6; background: rgba(248,248,250,.94); backdrop-filter: blur(10px); padding-top: 8px; flex-shrink: 0; }
+  .tab { flex: 1; text-align: center; background: none; border: 0; color: #8a8a8e; padding-bottom: 4px; transition: transform .1s cubic-bezier(.2,.8,.4,1); -webkit-tap-highlight-color: transparent; }
+  .tab:active { transform: scale(.92); }
+  .tab.active { color: #007AFF; }
+  .tab svg { width: 24px; height: 24px; display: block; margin: 0 auto; }
+  .tab span { font-size: 10px; margin-top: 2px; display: block; font-weight: 500; }
+  .tabIconWrap { position: relative; display: inline-block; }
+  .tabBadge { position: absolute; top: -4px; right: -9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #FF3B30; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 2px rgba(248,248,250,.94); }
+  .autoPairNote { margin: 0 0 14px; padding: 12px 14px; border-radius: 16px; background: #ecfdf5; border: 1px solid #bbf7d0; color: #0f5132; font-size: 14px; line-height: 1.35; font-weight: 700; }
+  .autoPairNote small { display:block; margin-top: 3px; color: #376a52; font-size: 12px; font-weight: 500; }
+
+  /* ---- messages (in-app inbox for retained push notifications) ---- */
+  .messages-list { flex: 1; overflow-y: auto; padding: 0 16px 16px; -webkit-overflow-scrolling: touch; }
+  .messages-empty { padding: 60px 20px; text-align: center; color: #8a8a8e; font-size: 14px; }
+  .message-row { display: flex; align-items: flex-start; gap: 8px; background: #fff; border-radius: 14px; padding: 12px 12px; margin-bottom: 10px; transition: opacity .18s ease, transform .18s ease; }
+  .message-row.dismissing { opacity: 0; transform: translateX(40px); }
+  .message-row-main { flex: 1; min-width: 0; }
+  .message-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .message-row-top b { font-size: 14px; }
+  .message-time { font-size: 11px; color: #8a8a8e; flex-shrink: 0; }
+  .message-row p { margin: 4px 0 0; font-size: 13px; color: #3c3c43; line-height: 1.4; }
+  .message-dismiss { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; border: 0; background: #f2f2f7; color: #8a8a8e; font-size: 16px; line-height: 1; cursor: pointer; }
+
+  /* ---- desktop preview chrome (only shown when viewport is wide) ---- */
+  @media (min-width: 640px) {
+    body { background: #e5e5ea; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 40px 0; }
+    #phone-frame { width: 390px; height: 780px; background: #000; border-radius: 54px; padding: 14px; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+    #app { border-radius: 42px; overflow: hidden; }
+  }
+</style>
+</head>
+<body>
+
+<div id="phone-frame">
+<div id="app">
+
+  <!-- Screen 1: Add to Home Screen coaching (shown only when not in standalone mode) -->
+  <section class="screen" id="scr-install">
+    <div class="app-icon"><img src="icons/icon-192.png" alt="Support Schedules"></div>
+    <h1>Install Support Schedules</h1>
+    <p class="sub" id="installSubText">Push notifications for emergency coverage only work once this is added to your Home Screen.</p>
+    <div id="autoPairNote" class="autoPairNote" style="display:none"></div>
+
+    <div id="installStepsIos">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div><p>Tap the Share button <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px"><path d="M12 3v13M8 7l4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> in Safari's toolbar.</p></div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div><p>Scroll down and tap <b>Add to Home Screen</b>.</p></div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div><p>Open the app from your Home Screen icon — not from Safari.</p><p class="hint">This step is required by iOS for notifications to work at all.</p></div>
+      </div>
+    </div>
+
+    <div id="installStepsAndroid" style="display:none">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div><p>Tap <b id="androidInstallBtn" style="color:#007AFF;cursor:pointer;text-decoration:underline">Install app</b> below, or open Chrome's menu (⋮) in the top right.</p></div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div><p>Tap <b>Add to Home screen</b> (or <b>Install app</b>, if that's what Chrome shows instead).</p></div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div><p>Open the app from your Home Screen icon — not from Chrome.</p><p class="hint">This step is required for notifications to work at all.</p></div>
+      </div>
+    </div>
+
+    <div id="installStepsOther" style="display:none">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div><p>Open this page on your phone in Safari (iPhone) or Chrome (Android) to install it — the desktop browser you're using now doesn't support installing this as an app.</p></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="installContinueBtn" style="max-width:none;margin-top:8px" onclick="continueAfterInstall()">Pair &amp; Setup</button>
+  </section>
+
+  <!-- Screen 2: Pairing. Only a code is asked for — the code alone identifies the staff
+       member and school server-side (see /api/v05418y/app-pairing/verify), so there is
+       nothing here to guess or pre-load before a real, server-verified response arrives. -->
+  <section class="screen" id="scr-pair">
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <h1>Pair your device</h1>
+      <p class="sub">Open your Staff Portal link, tap the gear icon, tap <b>Generate pairing code</b>, and enter it below.</p>
+      <div class="otp-row" id="otpRow">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      </div>
+      <p id="pairError"></p>
+      <button class="btn-primary" id="pairBtn" disabled onclick="tryPair()">Pair device</button>
+      <p id="pairFooter">SupportSchedules.com</p>
+    </div>
+  </section>
+
+  <!-- Screen 3: Schedules — My Schedule / Staff Schedules / Student Schedules / Break
+       Schedule / Regular Schedule (if activated), fetched and rendered from the real
+       Staff Portal data. -->
+  <section class="screen" id="scr-schedules">
+    <div class="topbar topbarRow">
+      <div>
+        <p class="eyebrow" id="schedulesDate"></p>
+        <h1 id="schedulesGreeting">Schedules</h1>
+      </div>
+      <div class="metaInfo" id="metaInfo"></div>
+    </div>
+    <div class="announcement-banner" id="announcementBanner" style="display:none"></div>
+    <div class="notif-banner" id="notifBanner" style="display:none">
+      <span id="notifBannerText"></span>
+      <button type="button" onclick="goTab('profile')">Fix</button>
+    </div>
+    <div class="view-picker-wrap">
+      <div class="view-picker-backdrop" id="viewPickerBackdrop" onclick="closeViewPicker()"></div>
+      <div class="view-picker-row">
+        <button type="button" class="view-picker-btn" id="viewPickerBtn" onclick="toggleViewPicker()">
+          <span id="viewPickerLabel">My schedule</span>
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="refresh-btn" id="refreshBtn" onclick="manualRefresh()" title="Refresh" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 4v5h5M20 20v-5h-5M4.5 15a8 8 0 0014.9 2.5M19.5 9A8 8 0 004.6 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      <div class="view-picker-menu" id="viewPickerMenu"></div>
+    </div>
+    <div class="portal-embed" id="portalEmbed"><div class="portal-embed-loading">Loading…</div></div>
+    <nav class="tabbar safe-bottom" id="tabbar-schedules"></nav>
+  </section>
+
+  <!-- Screen: Messages — retains push notifications within the app itself, since an OS
+       notification that gets dismissed or swiped away without being opened is otherwise
+       gone for good. Each message can be individually dismissed ("swiped away") once read. -->
+  <section class="screen" id="scr-messages">
+    <div class="topbar"><h1>Messages</h1></div>
+    <div class="messages-list" id="messagesList"><div class="portal-embed-loading">Loading…</div></div>
+    <nav class="tabbar safe-bottom" id="tabbar-messages"></nav>
+  </section>
+
+  <!-- Screen 4: Report Absence — native form, not the embedded HTML form (which posts back
+       to a different URL and won't work inside the app), submitting to the app's own
+       /api/v05418y/report-absence, which calls the same underlying validation/write as the
+       Staff Portal's own absence form. -->
+  <section class="screen" id="scr-absence">
+    <div class="topbar"><h1>Report absence</h1></div>
+    <div class="form-scroll">
+      <div class="field-row">
+        <label for="absStart">Date</label>
+        <input type="date" id="absStart">
+      </div>
+      <div class="field-row-inline">
+        <input type="checkbox" id="absMultiDay">
+        <label for="absMultiDay" style="margin:0">Multiple days</label>
+      </div>
+      <div class="field-row" id="absEndRow" style="display:none">
+        <label for="absEnd">Last Date</label>
+        <input type="date" id="absEnd">
+      </div>
+      <div class="field-row" id="absDayPartRow">
+        <label for="absDayPart">Absence details</label>
+        <select id="absDayPart">
+          <option value="full">Full day</option>
+          <option value="partial">Partial day</option>
+        </select>
+      </div>
+      <div class="partial-fields" id="absPartialFields">
+        <div class="field-row"><label for="absArrival">I will arrive at</label><input type="time" id="absArrival"></div>
+        <div class="field-row"><label for="absLeave">I will leave at</label><input type="time" id="absLeave"></div>
+      </div>
+      <div class="field-row">
+        <label for="absReason">Reason</label>
+        <select id="absReason">
+          <option value="">Choose</option>
+          <option value="PN = Personal Necessity">PN = Personal Necessity</option>
+          <option value="I = Illness">I = Illness</option>
+          <option value="V = Vacation">V = Vacation</option>
+          <option value="B = Bereavement">B = Bereavement</option>
+          <option value="J = Jury Duty">J = Jury Duty</option>
+          <option value="P = Personal Reason (you will not be paid)">P = Personal Reason (you will not be paid)</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label for="absNotes">Notes</label>
+        <textarea id="absNotes" placeholder="Optional details"></textarea>
+      </div>
+      <p id="absenceMsg"></p>
+      <button class="btn-primary" style="max-width:none" id="absSubmitBtn" onclick="submitAbsence()">Submit absence report</button>
+    </div>
+    <nav class="tabbar safe-bottom" id="tabbar-absence"></nav>
+  </section>
+
+  <!-- Screen 5: Profile -->
+  <section class="screen" id="scr-profile">
+    <div class="profile-hero">
+      <h2 id="profileName"></h2>
+      <p id="profileSchool"></p>
+    </div>
+    <div class="profile-scroll">
+    <div class="settings-list">
+      <div class="settings-row"><span>Notifications</span><span class="val" id="profileNotifStatus">—</span></div>
+      <div class="settings-row"><span>Device paired</span><span class="val" id="profilePairedAt">—</span></div>
+    </div>
+
+    <div class="profile-section">
+      <label class="profile-section-label">Email</label>
+      <div class="profile-email-row">
+        <input type="email" id="profileEmailInput" placeholder="you@school.org">
+        <button type="button" class="btn-inline" id="profileEmailSaveBtn" onclick="saveProfileEmail()">Save</button>
+      </div>
+      <p class="profile-hint" id="profileEmailHint"></p>
+    </div>
+
+    <div class="profile-section">
+      <label class="profile-section-label">Phone</label>
+      <div class="profile-email-row">
+        <input type="tel" id="profilePhoneInput" placeholder="(555) 555-5555" oninput="formatProfilePhoneInput(this)">
+        <button type="button" class="btn-inline" id="profilePhoneSaveBtn" onclick="saveProfilePhone()">Save</button>
+      </div>
+      <p class="profile-hint" id="profilePhoneHint"></p>
+    </div>
+
+    <div class="profile-section">
+      <label class="profile-section-label">Notification preference</label>
+      <div class="pref-toggle-row" id="profilePrefRow">
+        <button type="button" class="pref-toggle" data-pref="email" onclick="setProfilePreference('email')">Email</button>
+        <button type="button" class="pref-toggle" data-pref="push" onclick="setProfilePreference('push')">Push</button>
+        <button type="button" class="pref-toggle" data-pref="both" onclick="setProfilePreference('both')">Both</button>
+      </div>
+      <p class="profile-hint" id="profilePrefHint"></p>
+    </div>
+
+    <div class="profile-section" id="profilePasscodeRow" style="display:none">
+      <label class="profile-section-label">Passcode</label>
+      <p class="profile-hint">Add a 4 digit passcode for extra protection on saved or shared devices.</p>
+      <button type="button" class="btn-inline" id="profilePasscodeBtn" onclick="openAppPasscodeSettings()">Set</button>
+    </div>
+
+    <button class="btn-secondary-full" id="reEnableNotifBtn" onclick="reEnableNotifications()">Re-enable notifications</button>
+    <button class="danger-btn" onclick="unpair()">Unpair this device</button>
+    </div>
+    <nav class="tabbar safe-bottom" id="tabbar-profile"></nav>
+  </section>
+
+</div>
+</div>
+
+<script>
+  var STORAGE_KEY = 'gaSupportSchedulesAppPairingV1';
+  var VIEW_LABELS = { my: 'My schedule', staff: 'Staff schedules', students: 'Student schedules', breaks: 'Break schedule', regular: 'Regular schedule' };
+  var currentView = 'my';
+  var viewCache = {};
+  var pairingData = null;
+
+  var TAB_ICONS = {
+    schedules: '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    messages: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16v11H8l-4 4V6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    absence: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.8"/></svg>',
+    profile: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  };
+  var TAB_LABELS = { schedules: 'Schedules', messages: 'Messages', absence: 'Absence', profile: 'Profile' };
+  var unreadMessageCount = 0;
+
+  function buildTabbar(container, activeName) {
+    container.innerHTML = Object.keys(TAB_ICONS).map(function(name){
+      var badge = (name === 'messages' && unreadMessageCount > 0) ? '<span class="tabBadge">' + (unreadMessageCount > 9 ? '9+' : unreadMessageCount) + '</span>' : '';
+      return '<button class="tab' + (name === activeName ? ' active' : '') + '" onclick="goTab(\'' + name + '\')"><span class="tabIconWrap">' + TAB_ICONS[name] + badge + '</span><span>' + TAB_LABELS[name] + '</span></button>';
+    }).join('');
+  }
+  buildTabbar(document.getElementById('tabbar-schedules'), 'schedules');
+  buildTabbar(document.getElementById('tabbar-messages'), 'messages');
+  buildTabbar(document.getElementById('tabbar-absence'), 'absence');
+  buildTabbar(document.getElementById('tabbar-profile'), 'profile');
+
+  function refreshAllTabbars() {
+    var active = document.querySelector('.screen.active');
+    var activeName = active ? active.id.replace('scr-', '') : 'schedules';
+    ['schedules', 'messages', 'absence', 'profile'].forEach(function(n){
+      var el = document.getElementById('tabbar-' + n);
+      if (el) buildTabbar(el, activeName);
+    });
+    try {
+      if (unreadMessageCount > 0 && navigator.setAppBadge) navigator.setAppBadge(unreadMessageCount);
+      else if (navigator.clearAppBadge) navigator.clearAppBadge();
+    } catch (e) {}
+  }
+
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    var el = document.getElementById('scr-' + name);
+    if (el) el.classList.add('active');
+  }
+  function goTab(name) {
+    showScreen(name);
+    refreshAllTabbars();
+    if (name === 'schedules') fetchView(currentView);
+    if (name === 'messages') loadInbox();
+  }
+
+  // ---- persistence ----
+  function savePairing(data) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {} }
+  function loadPairing() { try { var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+  function clearPairing() { try { localStorage.removeItem(STORAGE_KEY); } catch (e) {} }
+
+  // ---- QR-driven app setup / auto-pair ----
+  // The personalized App QR is a setup link, not a browser-login link. A scan should keep
+  // the staff member on the install/add-to-home-screen instructions, preserve the secure
+  // pairing intent, then consume it only after the installed app is opened and the staff
+  // member taps "I've added it — continue." This prevents the token from being burned in a
+  // normal Safari/Chrome tab and then disappearing when the home-screen app opens fresh.
+  var AUTO_PAIR_STORAGE_KEY = 'gaSupportSchedulesPendingAutoPairV05418CL';
+  function htmlEscape(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]); });
+  }
+  function normalizePendingAutoPair(raw) {
+    raw = raw || {};
+    var school = String(raw.school || raw.setupSchool || '').trim();
+    var staffName = String(raw.staffName || raw.staff || raw.setupStaff || '').trim();
+    var staffToken = String(raw.staffToken || raw.token || raw.setupToken || '').trim();
+    if (!school || !staffName || !staffToken) return null;
+    return { school: school, staffName: staffName, staffToken: staffToken, capturedAt: raw.capturedAt || new Date().toISOString() };
+  }
+  function savePendingAutoPair(pending) {
+    pending = normalizePendingAutoPair(pending);
+    if (!pending) return;
+    var raw = JSON.stringify(pending);
+    try { localStorage.setItem(AUTO_PAIR_STORAGE_KEY, raw); } catch (e) {}
+    try { sessionStorage.setItem(AUTO_PAIR_STORAGE_KEY, raw); } catch (e) {}
+    // Cookie fallback: some mobile home-screen apps do not share localStorage with the
+    // browser tab used for installation. Cookies are not the primary path, but they give
+    // same-origin launches one more way to recover the pending setup before showing manual
+    // pairing. The token is already inside the scanned QR URL and is cleared once consumed.
+    try { document.cookie = AUTO_PAIR_STORAGE_KEY + '=' + encodeURIComponent(raw) + '; Max-Age=1800; Path=/app; SameSite=Lax; Secure'; } catch (e) {}
+  }
+  function loadPendingAutoPairFromCookie() {
+    try {
+      var prefix = AUTO_PAIR_STORAGE_KEY + '=';
+      var parts = String(document.cookie || '').split(';');
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i].trim();
+        if (part.indexOf(prefix) === 0) return normalizePendingAutoPair(JSON.parse(decodeURIComponent(part.slice(prefix.length))));
+      }
+    } catch (e) {}
+    return null;
+  }
+  function captureAutoPairFromUrl() {
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var pending = normalizePendingAutoPair({
+        school: params.get('setupSchool') || params.get('school'),
+        staffName: params.get('setupStaff') || params.get('staff') || params.get('staffName'),
+        staffToken: params.get('setupToken') || params.get('staffToken') || params.get('token')
+      });
+      var explicitSetup = params.get('pairSetup') === '1' || params.has('setupToken') || params.has('setupStaff') || params.has('setupSchool');
+      if (pending && (explicitSetup || params.has('staffToken') || params.has('token'))) {
+        savePendingAutoPair(pending);
+        installDynamicManifestForPendingSetup(pending);
+      }
+    } catch (e) {}
+  }
+  function loadPendingAutoPair() {
+    try {
+      var raw = localStorage.getItem(AUTO_PAIR_STORAGE_KEY) || sessionStorage.getItem(AUTO_PAIR_STORAGE_KEY);
+      var pending = raw ? normalizePendingAutoPair(JSON.parse(raw)) : null;
+      if (pending) return pending;
+    } catch (e) {}
+    return loadPendingAutoPairFromCookie();
+  }
+  function clearPendingAutoPair() {
+    try { localStorage.removeItem(AUTO_PAIR_STORAGE_KEY); } catch (e) {}
+    try { sessionStorage.removeItem(AUTO_PAIR_STORAGE_KEY); } catch (e) {}
+    try { document.cookie = AUTO_PAIR_STORAGE_KEY + '=; Max-Age=0; Path=/app; SameSite=Lax; Secure'; } catch (e) {}
+  }
+  function showManualPairForInvalidSetup(message) {
+    clearPendingAutoPair();
+    var otpRow = document.getElementById('otpRow');
+    var pairBtnEl = document.getElementById('pairBtn');
+    var pairFooter = document.getElementById('pairFooter');
+    var errEl = document.getElementById('pairError');
+    if (otpRow) otpRow.style.display = '';
+    if (pairBtnEl) { pairBtnEl.style.display = ''; pairBtnEl.disabled = true; pairBtnEl.textContent = 'Pair device'; }
+    if (pairFooter) pairFooter.textContent = 'SupportSchedules.com';
+    if (errEl) errEl.textContent = message || 'This app setup QR is no longer valid. Generate a pairing code from your Staff Portal.';
+    showScreen('pair');
+  }
+  function validatePendingAutoPair(pending) {
+    pending = normalizePendingAutoPair(pending);
+    if (!pending) return Promise.resolve(false);
+    return fetch('/api/v05418y/app-pairing/setup-validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body: JSON.stringify({ school: pending.school, staffName: pending.staffName, staffToken: pending.staffToken })
+    }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok || !j || j.ok === false) {
+          var err = new Error((j && j.error) || 'This app setup QR is no longer valid.');
+          if (j && j.revoked) err.revoked = true;
+          throw err;
+        }
+        return true;
+      });
+    });
+  }
+  function installDynamicManifestForPendingSetup(pending) {
+    // Chrome/Android may use manifest.start_url when installing. Give it the same setup
+    // payload as the scanned URL so the home-screen launch can still recover even if browser
+    // storage is isolated. iOS generally uses the current page URL, and we intentionally do
+    // not strip that URL for the same reason.
+    try {
+      pending = normalizePendingAutoPair(pending);
+      if (!pending) return;
+      var start = '/app/index.html?' + new URLSearchParams({ pairSetup: '1', setupSchool: pending.school, setupStaff: pending.staffName, setupToken: pending.staffToken }).toString();
+      var manifest = {
+        name: 'Support Schedules',
+        short_name: 'Schedules',
+        description: 'Staff schedule, day-of coverage alerts, and emergency notifications.',
+        start_url: start,
+        scope: '/app/',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#f2f2f7',
+        theme_color: '#0A2540',
+        icons: [
+          { src: 'icons/icon-180.png', sizes: '180x180', type: 'image/png' },
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+        ]
+      };
+      var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      var link = document.querySelector('link[rel="manifest"]');
+      if (link) link.setAttribute('href', URL.createObjectURL(blob));
+    } catch (e) {}
+  }
+  function isStandaloneApp() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+  function updateInstallScreenForPendingSetup() {
+    var pending = loadPendingAutoPair();
+    var note = document.getElementById('autoPairNote');
+    var sub = document.getElementById('installSubText');
+    var title = document.querySelector('#scr-install h1');
+    var standalone = isStandaloneApp();
+    if (title) {
+      title.textContent = 'Install Support Schedules';
+      title.style.display = (standalone && pending) ? 'none' : '';
+    }
+    if (sub) {
+      sub.textContent = 'Push notifications for emergency coverage only work once this is added to your Home Screen.';
+      sub.style.display = (standalone && pending) ? 'none' : '';
+    }
+    if (note && pending) {
+      note.style.display = 'block';
+      note.innerHTML = 'Auto-pairing for ' + htmlEscape(pending.staffName);
+    } else if (note) {
+      note.style.display = 'none';
+      note.innerHTML = '';
+    }
+  }
+  function showOpenHomeScreenReminder() {
+    var note = document.getElementById('autoPairNote');
+    if (note) {
+      var pending = loadPendingAutoPair();
+      note.style.display = 'block';
+      note.innerHTML = 'Auto-pairing for ' + htmlEscape((pending && pending.staffName) || 'your account');
+    }
+  }
+  function continueAfterInstall() {
+    var pending = loadPendingAutoPair();
+    if (pending) {
+      if (!isStandaloneApp()) { showOpenHomeScreenReminder(); return; }
+      runAutoPair(pending);
+      return;
+    }
+    showScreen('pair');
+  }
+
+  var CLIENT_DEVICE_ID_KEY = 'gaSupportSchedulesClientDeviceIdV05424';
+  function getClientDeviceId() {
+    try {
+      var existing = localStorage.getItem(CLIENT_DEVICE_ID_KEY);
+      if (existing) return existing;
+      var id = 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem(CLIENT_DEVICE_ID_KEY, id);
+      return id;
+    } catch (e) {
+      return 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+    }
+  }
+
+  function runAutoPair(pending) {
+    pending = normalizePendingAutoPair(pending);
+    if (!pending) { showScreen('pair'); return; }
+    showScreen('pair');
+    var errEl = document.getElementById('pairError');
+    var pairFooter = document.getElementById('pairFooter');
+    var otpRow = document.getElementById('otpRow');
+    if (otpRow) otpRow.style.display = 'none';
+    if (pairBtn) pairBtn.style.display = 'none';
+    if (errEl) errEl.textContent = '';
+    if (pairFooter) pairFooter.textContent = 'Pairing your device automatically...';
+    getPushSubscription().catch(function(pushErr){
+      if (errEl) errEl.textContent = pushErr.message || 'Could not enable notifications.';
+      return null;
+    }).then(function(subscription){
+      return fetch('/api/v05418y/app-pairing/auto-pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school: pending.school, staffName: pending.staffName, staffToken: pending.staffToken, subscription: subscription || null, platform: navigator.platform || 'web', clientDeviceId: getClientDeviceId() })
+      });
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    }).then(function(j){
+      clearPendingAutoPair();
+      var pairing = { staffName: j.staffName, school: j.school, schoolName: j.schoolName || j.school, staffToken: j.staffToken, pairedAt: new Date().toISOString() };
+      savePairing(pairing);
+      pairingData = pairing;
+      renderPairedScreens(pairing);
+      showScreen('schedules');
+      enforceAppPasscode(pairing, function(){ loadAvailableViewsAndOpen(); checkPushHealth(); checkUnreadCount(); });
+    }).catch(function(e){
+      clearPendingAutoPair();
+      if (otpRow) otpRow.style.display = '';
+      if (pairBtn) { pairBtn.style.display = ''; pairBtn.disabled = false; pairBtn.textContent = 'Pair device'; }
+      if (pairFooter) pairFooter.textContent = 'SupportSchedules.com';
+      if (errEl) errEl.textContent = (e.message || 'Could not pair this device automatically.') + ' You can also pair using a code from your Staff Portal.';
+    });
+  }
+
+  function authedFetch(url, opts) {
+    opts = opts || {};
+    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+    var withAuth = url + sep + 'staffName=' + encodeURIComponent(pairingData.staffName) + '&staffToken=' + encodeURIComponent(pairingData.staffToken) + '&school=' + encodeURIComponent(pairingData.school);
+    return fetch(opts.method === 'POST' ? url : withAuth, opts).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    });
+  }
+
+  function renderPairedScreens(pairing) {
+    var name = pairing.staffName || '';
+    document.getElementById('schedulesGreeting').textContent = name.split(' ')[0] ? ('Hi, ' + name.split(' ')[0]) : 'Schedules';
+    document.getElementById('schedulesDate').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('profileSchool').textContent = pairing.schoolName || pairing.school || '';
+    var pairedDate = pairing.pairedAt ? new Date(pairing.pairedAt) : null;
+    document.getElementById('profilePairedAt').textContent = pairedDate ? pairedDate.toLocaleDateString() : '';
+    document.getElementById('profileNotifStatus').textContent = (typeof Notification !== 'undefined' && Notification.permission === 'granted') ? 'On' : 'Not enabled';
+    refreshAppPasscodeSettingsRow(pairing);
+  }
+
+  var availableViewsCache = [];
+  function buildSegments(availableViews) {
+    availableViewsCache = availableViews;
+    document.getElementById('viewPickerLabel').textContent = VIEW_LABELS[currentView] || 'Schedule';
+    var menu = document.getElementById('viewPickerMenu');
+    menu.innerHTML = availableViews.map(function(v){
+      var active = v === currentView;
+      return '<button type="button" class="view-picker-option' + (active ? ' active' : '') + '" data-view="' + v + '" onclick="switchView(\'' + v + '\')">' +
+        '<span>' + VIEW_LABELS[v] + '</span>' +
+        (active ? '<svg class="check" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-10" stroke="#007AFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '') +
+        '</button>';
+    }).join('');
+  }
+  function toggleViewPicker() {
+    var open = document.getElementById('viewPickerMenu').classList.toggle('open');
+    document.getElementById('viewPickerBackdrop').classList.toggle('open', open);
+    document.getElementById('viewPickerBtn').classList.toggle('open', open);
+  }
+  function closeViewPicker() {
+    document.getElementById('viewPickerMenu').classList.remove('open');
+    document.getElementById('viewPickerBackdrop').classList.remove('open');
+    document.getElementById('viewPickerBtn').classList.remove('open');
+  }
+
+  function switchView(view) {
+    currentView = view;
+    closeViewPicker();
+    buildSegments(availableViewsCache);
+    fetchView(view);
+  }
+
+  function fetchView(view, force) {
+    var box = document.getElementById('portalEmbed');
+    if (viewCache[view] && !force) { box.innerHTML = viewCache[view]; return Promise.resolve(); }
+    box.innerHTML = '<div class="portal-embed-loading">Loading…</div>';
+    return authedFetch('/api/v05418y/portal-view?view=' + encodeURIComponent(view)).then(function(j){
+      viewCache[view] = j.html || '<div class="portal-embed-error">No content returned.</div>';
+      if (currentView === view) box.innerHTML = viewCache[view];
+    }).catch(function(e){
+      if (currentView === view) box.innerHTML = '<div class="portal-embed-error">Could not load this schedule: ' + (e.message || e) + '</div>';
+    });
+  }
+
+  function updateMetaInfo(data) {
+    var el = document.getElementById('metaInfo');
+    if (!el) return;
+    if (!data) { el.innerHTML = ''; return; }
+    // Two lines only, per direction: schedule version and publish time. The date/schedule
+    // type lines were removed -- that information is already shown on the left side of this
+    // same top bar (the "Saturday, July 4" eyebrow), so repeating it here was redundant.
+    var versionLabel = data.scheduleVersionLabel || data.versionLabel || (data.scheduleVersion ? 'v' + data.scheduleVersion : '') || (data.publishedVersion ? 'v' + data.publishedVersion : '');
+    var parts = [];
+    if (versionLabel) parts.push('Schedule ' + versionLabel);
+    if (data.publishedAt) parts.push('Published ' + data.publishedAt);
+    el.innerHTML = parts.map(function(l){ return esc(l); }).join('<br>');
+  }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  // Matches renderPublicStaffAnnouncement_() in the real Staff Portal source: an
+  // announcement shows here only if it's not hidden, its target includes staff, and it has
+  // a headline or note to actually show.
+  function announcementVisible(a) {
+    if (!a) return false;
+    var target = String(a.target || a.broadcastTarget || 'staff').toLowerCase();
+    var hidden = a.hidden === true || String(a.hidden || '').toLowerCase() === 'true';
+    var headline = String(a.headline || a.label || '').trim();
+    var note = String(a.note || '').trim();
+    if (hidden) return false;
+    if (['staff', 'both', 'admin & staff', 'admin_staff'].indexOf(target) === -1) return false;
+    return !!(headline || note);
+  }
+
+  function updateAnnouncementBanner(data) {
+    var el = document.getElementById('announcementBanner');
+    if (!el) return;
+    if (!data) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    var list = Array.isArray(data.announcements) ? data.announcements : (data.announcement ? [data.announcement] : []);
+    var visible = list.filter(announcementVisible);
+    if (!visible.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.innerHTML = visible.map(function(a){
+      var headline = String(a.headline || a.label || '').trim() || 'Announcement';
+      var note = String(a.note || '').trim();
+      return '<div><b>' + esc(headline) + '</b>' + (note ? '<span>' + esc(note) + '</span>' : '') + '</div>';
+    }).join('');
+    el.style.display = 'block';
+  }
+
+  function refreshSchoolNameIfNeeded(j) {
+    if (!j.schoolName || !pairingData) return;
+    if (pairingData.schoolName === j.schoolName) return;
+    pairingData.schoolName = j.schoolName;
+    savePairing(pairingData);
+    var el = document.getElementById('profileSchool');
+    if (el) el.textContent = j.schoolName;
+  }
+
+  // ---- profile: email + notification preference ----
+  function populateProfileEmail(j) {
+    var prefs = j.communicationPreferences || {};
+    var input = document.getElementById('profileEmailInput');
+    var hint = document.getElementById('profileEmailHint');
+    var btn = document.getElementById('profileEmailSaveBtn');
+    if (!input) return;
+    input.value = prefs.notificationEmail || '';
+    if (prefs.emailLocked) {
+      input.disabled = true;
+      if (btn) btn.disabled = true;
+      if (hint) { hint.textContent = 'Locked by an administrator. Ask an administrator to change it.'; hint.className = 'profile-hint'; }
+    } else {
+      input.disabled = false;
+      if (btn) btn.disabled = false;
+      if (hint) { hint.textContent = ''; hint.className = 'profile-hint'; }
+    }
+    var phoneInput = document.getElementById('profilePhoneInput');
+    if (phoneInput) phoneInput.value = prefs.phone || '';
+  }
+
+  function saveProfileEmail() {
+    if (!pairingData) return;
+    var input = document.getElementById('profileEmailInput');
+    var hint = document.getElementById('profileEmailHint');
+    var btn = document.getElementById('profileEmailSaveBtn');
+    if (!input) return;
+    var email = input.value.trim();
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    if (hint) { hint.textContent = ''; hint.className = 'profile-hint'; }
+    fetch('/api/v05418y/comm-email/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken, notificationEmail: email })
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    }).then(function(j){
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+      if (hint) { hint.textContent = j.message || 'Saved.'; hint.className = 'profile-hint ok'; }
+    }).catch(function(e){
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+      if (hint) { hint.textContent = e.message || 'Could not save.'; hint.className = 'profile-hint err'; }
+    });
+  }
+
+  function formatProfilePhoneInput(input) {
+    var digits = String(input.value||'').replace(/\D/g,'').slice(0,10);
+    var out = digits;
+    if (digits.length > 6) out = '('+digits.slice(0,3)+') '+digits.slice(3,6)+'-'+digits.slice(6);
+    else if (digits.length > 3) out = '('+digits.slice(0,3)+') '+digits.slice(3);
+    else if (digits.length > 0) out = '('+digits;
+    input.value = out;
+  }
+  function saveProfilePhone() {
+    if (!pairingData) return;
+    var input = document.getElementById('profilePhoneInput');
+    var hint = document.getElementById('profilePhoneHint');
+    var btn = document.getElementById('profilePhoneSaveBtn');
+    if (!input) return;
+    var phone = input.value.trim();
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    if (hint) { hint.textContent = ''; hint.className = 'profile-hint'; }
+    fetch('/api/v05418y/comm-phone/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken, phone: phone })
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    }).then(function(j){
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+      if (input && j.phone != null) input.value = j.phone;
+      if (hint) { hint.textContent = j.message || 'Saved.'; hint.className = 'profile-hint ok'; }
+    }).catch(function(e){
+      if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+      if (hint) { hint.textContent = e.message || 'Could not save.'; hint.className = 'profile-hint err'; }
+    });
+  }
+
+  function updatePrefToggleUI(pref) {
+    document.querySelectorAll('.pref-toggle').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-pref') === pref);
+    });
+  }
+
+  function loadProfilePreference() {
+    if (!pairingData) return;
+    authedFetch('/api/v05418y/comm-preference').then(function(j){
+      updatePrefToggleUI(j.preference || 'email');
+    }).catch(function(){});
+  }
+
+  function setProfilePreference(pref) {
+    if (!pairingData) return;
+    var hint = document.getElementById('profilePrefHint');
+    updatePrefToggleUI(pref);
+    if (hint) { hint.textContent = 'Saving…'; hint.className = 'profile-hint'; }
+    fetch('/api/v05418y/comm-preference/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken, preference: pref })
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    }).then(function(){
+      if (hint) { hint.textContent = 'Saved.'; hint.className = 'profile-hint ok'; }
+    }).catch(function(e){
+      if (hint) { hint.textContent = e.message || 'Could not save.'; hint.className = 'profile-hint err'; }
+      loadProfilePreference();
+    });
+  }
+
+  // ---- inbox (retained push notifications) ----
+  function formatMessageTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    return sameDay ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function checkUnreadCount() {
+    if (!pairingData) return;
+    authedFetch('/api/v05418y/inbox').then(function(j){
+      unreadMessageCount = (j.messages || []).length;
+      refreshAllTabbars();
+    }).catch(function(){});
+  }
+
+  function loadInbox() {
+    var list = document.getElementById('messagesList');
+    if (!list || !pairingData) return;
+    list.innerHTML = '<div class="portal-embed-loading">Loading…</div>';
+    authedFetch('/api/v05418y/inbox').then(function(j){
+      var messages = j.messages || [];
+      unreadMessageCount = messages.length;
+      refreshAllTabbars();
+      if (!messages.length) { list.innerHTML = '<div class="messages-empty">No messages right now.</div>'; return; }
+      list.innerHTML = messages.map(function(m){
+        return '<div class="message-row" data-id="' + esc(m.id) + '">'
+          + '<div class="message-row-main">'
+          + '<div class="message-row-top"><b>' + esc(m.subject || 'Announcement') + '</b><span class="message-time">' + esc(formatMessageTime(m.sentAt)) + '</span></div>'
+          + '<p>' + esc(m.message || '') + '</p>'
+          + '</div>'
+          + '<button type="button" class="message-dismiss" onclick="dismissMessage(\'' + esc(m.id).replace(/'/g, "\\'") + '\')" aria-label="Dismiss">×</button>'
+          + '</div>';
+      }).join('');
+    }).catch(function(e){
+      list.innerHTML = '<div class="portal-embed-error">Could not load messages: ' + (e.message || e) + '</div>';
+    });
+  }
+
+  function dismissMessage(messageId) {
+    if (!pairingData) return;
+    var row = document.querySelector('.message-row[data-id="' + messageId.replace(/"/g, '\\"') + '"]');
+    if (row) row.classList.add('dismissing');
+    fetch('/api/v05418y/inbox/dismiss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken, messageId: messageId })
+    }).then(function(){
+      if (row) setTimeout(function(){ row.remove(); if (!document.querySelector('.message-row')) { var l = document.getElementById('messagesList'); if (l) l.innerHTML = '<div class="messages-empty">No messages right now.</div>'; } }, 180);
+      unreadMessageCount = Math.max(0, unreadMessageCount - 1);
+      refreshAllTabbars();
+    }).catch(function(){
+      if (row) row.classList.remove('dismissing');
+    });
+  }
+
+  function loadAvailableViewsAndOpen() {
+    updateMetaInfo(null);
+    authedFetch('/api/v05418y/portal-data').then(function(j){
+      var views = [];
+      if (j.hasStaffIdentity) views.push('my');
+      views.push('staff', 'students', 'breaks');
+      if (j.hasRegular) views.push('regular');
+      buildSegments(views);
+      currentView = views[0];
+      fetchView(currentView, true);
+      updateMetaInfo(j);
+      refreshSchoolNameIfNeeded(j);
+      updateAnnouncementBanner(j);
+      populateProfileEmail(j);
+    }).catch(function(e){
+      buildSegments(['my']);
+      document.getElementById('portalEmbed').innerHTML = '<div class="portal-embed-error">Could not load schedule data: ' + (e.message || e) + '</div>';
+      updateMetaInfo(null);
+    });
+    loadProfilePreference();
+  }
+
+  // Manual refresh: unlike the initial load, this preserves whichever view the user is
+  // currently looking at instead of jumping back to "My schedule" -- someone who tapped
+  // refresh while on Break Schedule almost certainly wants to stay on Break Schedule.
+  function manualRefresh() {
+    var btn = document.getElementById('refreshBtn');
+    if (btn) btn.classList.add('spinning');
+    authedFetch('/api/v05418y/portal-data').then(function(j){
+      var views = [];
+      if (j.hasStaffIdentity) views.push('my');
+      views.push('staff', 'students', 'breaks');
+      if (j.hasRegular) views.push('regular');
+      buildSegments(views);
+      if (views.indexOf(currentView) === -1) currentView = views[0];
+      updateMetaInfo(j);
+      refreshSchoolNameIfNeeded(j);
+      updateAnnouncementBanner(j);
+      return fetchView(currentView, true);
+    }).catch(function(e){
+      document.getElementById('portalEmbed').innerHTML = '<div class="portal-embed-error">Could not refresh: ' + (e.message || e) + '</div>';
+    }).then(function(){
+      if (btn) btn.classList.remove('spinning');
+    });
+  }
+
+  // ---- platform detection for install instructions: iOS (Safari-only manual steps),
+  // Android (Chrome, which can offer a native one-tap install prompt via
+  // beforeinstallprompt), or anything else (desktop browser -- can't install here at all). ----
+  function detectPlatform() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/.test(ua) && !window.MSStream) return 'ios';
+    if (/Android/.test(ua)) return 'android';
+    return 'other';
+  }
+  var deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+  function showInstallInstructions() {
+    var platform = detectPlatform();
+    var standalone = isStandaloneApp();
+    document.getElementById('installStepsIos').style.display = (!standalone && platform === 'ios') ? 'block' : 'none';
+    document.getElementById('installStepsAndroid').style.display = (!standalone && platform === 'android') ? 'block' : 'none';
+    document.getElementById('installStepsOther').style.display = (!standalone && platform === 'other') ? 'block' : 'none';
+    var pending = loadPendingAutoPair();
+    if (pending) installDynamicManifestForPendingSetup(pending);
+    updateInstallScreenForPendingSetup();
+    showScreen('install');
+  }
+  document.getElementById('androidInstallBtn').addEventListener('click', function() {
+    if (!deferredInstallPrompt) return; // falls back to the manual steps already on screen
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(function() { deferredInstallPrompt = null; });
+  });
+
+
+
+  function attachMaskedPinInputV05418DF(input) {
+    if (!input || input.__maskedPinV05418DG) return;
+    input.__maskedPinV05418DG = true;
+    input.__maskedPinV05418DF = true;
+    input.type = 'tel';
+    input.inputMode = 'numeric';
+    input.pattern = '[0-9]*';
+    input.maxLength = 4;
+    input.autocomplete = input.autocomplete || 'one-time-code';
+    input.dataset.pin = '';
+    var timer = null;
+    var rendering = false;
+    function digits(v) { return String(v == null ? '' : v).replace(/\D/g, '').slice(0, 4); }
+    function render(showLast) {
+      var pin = digits(input.dataset.pin || '');
+      input.dataset.pin = pin;
+      rendering = true;
+      input.value = !pin ? '' : (showLast && pin.length ? ('*'.repeat(Math.max(0, pin.length - 1)) + pin.slice(-1)) : '*'.repeat(pin.length));
+      rendering = false;
+      if (timer) clearTimeout(timer);
+      if (showLast) timer = setTimeout(function(){ render(false); }, 650);
+    }
+    function addDigits(txt) {
+      var d = digits(txt);
+      if (!d) { render(false); return; }
+      var pin = digits(input.dataset.pin || '');
+      input.dataset.pin = (pin + d).slice(0, 4);
+      render(true);
+    }
+    input.addEventListener('beforeinput', function(e){
+      if (e.inputType === 'deleteContentBackward') { e.preventDefault(); input.dataset.pin = digits(input.dataset.pin || '').slice(0, -1); render(false); return; }
+      if (e.inputType === 'deleteContentForward') { e.preventDefault(); input.dataset.pin = ''; render(false); return; }
+      if (e.inputType && e.inputType.indexOf('insert') === 0) { e.preventDefault(); addDigits(e.data || ''); return; }
+    });
+    input.addEventListener('keydown', function(e){
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^\d$/.test(e.key)) { e.preventDefault(); addDigits(e.key); return; }
+      if (e.key === 'Backspace') { e.preventDefault(); input.dataset.pin = digits(input.dataset.pin || '').slice(0, -1); render(false); return; }
+      if (e.key === 'Delete') { e.preventDefault(); input.dataset.pin = ''; render(false); return; }
+      if (['Tab','ArrowLeft','ArrowRight','Home','End','Enter'].indexOf(e.key) >= 0) return;
+      e.preventDefault();
+    });
+    input.addEventListener('paste', function(e){
+      e.preventDefault();
+      var txt = '';
+      try { txt = (e.clipboardData || window.clipboardData).getData('text') || ''; } catch(x) {}
+      addDigits(txt);
+    });
+    input.addEventListener('input', function(){
+      if (rendering) return;
+      var v = digits(input.value || '');
+      if (v) input.dataset.pin = v;
+      render(!!v);
+    });
+    render(false);
+  }
+  function readMaskedPinInputV05418DF(input) { return String((input && input.dataset && input.dataset.pin) || '').replace(/\D/g, '').slice(0, 4); }
+
+  function fetchAppPasscodeStatus(pairing) {
+    if (!pairing || !pairing.school || !pairing.staffName || !pairing.staffToken) return Promise.resolve(null);
+    return fetch('/api/v05422/passcode-status?' + new URLSearchParams({ school: pairing.school, staff: pairing.staffName, staffToken: pairing.staffToken, _t: Date.now() }).toString(), { credentials: 'same-origin', cache: 'no-store' })
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok || !j || j.ok === false) throw new Error((j && j.error) || 'Passcode status failed'); return j; }); });
+  }
+
+  function refreshAppPasscodeSettingsRow(pairing) {
+    var row = document.getElementById('profilePasscodeRow');
+    var btn = document.getElementById('profilePasscodeBtn');
+    if (!row || !btn || !pairing) return;
+    fetchAppPasscodeStatus(pairing).then(function(j){
+      if (!j || j.policyMode === 'disabled' || j.mode === 'disabled') { row.style.display = 'none'; return; }
+      row.style.display = '';
+      btn.textContent = j.hasPasscode ? 'Manage Passcode' : 'Enable Passcode';
+      btn.title = j.hasPasscode ? 'Change your app passcode' : 'Enable an app passcode';
+      var dis = document.getElementById('profileDisablePasscodeBtn');
+      if (j.hasPasscode && j.policyMode !== 'required') {
+        if (!dis) {
+          dis = document.createElement('button');
+          dis.type = 'button';
+          dis.className = 'btn-inline';
+          dis.id = 'profileDisablePasscodeBtn';
+          dis.style.marginLeft = '8px';
+          dis.textContent = 'Disable Passcode';
+          btn.parentNode && btn.parentNode.insertBefore(dis, btn.nextSibling);
+        }
+        dis.style.display = '';
+        dis.onclick = function(){ showAppPasscodePanel(pairing, j, 'disable', function(){ refreshAppPasscodeSettingsRow(pairing); }); };
+      } else if (dis) {
+        dis.style.display = 'none';
+      }
+    }).catch(function(){ row.style.display = 'none'; });
+  }
+
+  function showAppPasscodePanel(pairing, status, mode, onDone) {
+    onDone = onDone || function(){};
+    status = status || {};
+    var isVerify = mode === 'verify';
+    var isReset = mode === 'reset';
+    var isDisable = mode === 'disable';
+    var title = isVerify ? 'Enter your app passcode' : (isDisable ? 'Disable app passcode' : (status.hasPasscode ? 'Change your app passcode' : 'Create your app passcode'));
+    var note = isVerify ? 'This protects your Support Schedules app on this device.' : (isDisable ? 'Enter your current 4 digit passcode to disable it.' : 'Choose a 4 digit passcode. Enter it twice to confirm.');
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:18px';
+    ov.innerHTML = '<div style="width:min(390px,100%);background:#fff;color:#0f172a;border-radius:22px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.35);font-family:Arial,Helvetica,sans-serif"><h2 style="margin:0 0 8px;font-size:20px">'+htmlEscape(title)+'</h2><p style="color:#64748b;font-size:13px;line-height:1.4">'+htmlEscape(note)+'</p><input id="appPasscodePinV05423" maxlength="4" inputmode="numeric" autocomplete="one-time-code" placeholder="----" style="width:100%;box-sizing:border-box;border:1px solid #cfe0f4;border-radius:12px;padding:12px;font-size:20px;letter-spacing:6px;text-align:center">'+((isVerify||isDisable)?'':'<input id="appPasscodePinConfirmV05423" maxlength="4" inputmode="numeric" autocomplete="one-time-code" placeholder="Confirm" style="width:100%;box-sizing:border-box;border:1px solid #cfe0f4;border-radius:12px;padding:12px;font-size:20px;letter-spacing:6px;text-align:center;margin-top:10px">')+'<div id="appPasscodeMsgV05423" style="min-height:18px;color:#64748b;font-size:12px;margin-top:8px"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="appPasscodeCancelV05423" style="border:1px solid #d1d5db;background:#fff;color:#334155;border-radius:10px;padding:9px 12px;font-weight:800">Cancel</button><button id="appPasscodeGoV05423" style="border:1px solid '+(isDisable?'#dc2626':'#2563eb')+';background:'+(isDisable?'#dc2626':'#2563eb')+';color:#fff;border-radius:10px;padding:9px 12px;font-weight:800">'+(isVerify?'Unlock':(isDisable?'Disable':'Save'))+'</button></div></div>';
+    document.body.appendChild(ov);
+    var input = document.getElementById('appPasscodePinV05423');
+    var confirmInput = document.getElementById('appPasscodePinConfirmV05423');
+    var msg = document.getElementById('appPasscodeMsgV05423');
+    attachMaskedPinInputV05418DF(input);
+    attachMaskedPinInputV05418DF(confirmInput);
+    setTimeout(function(){ try{ input.focus(); }catch(e){} }, 50);
+    document.getElementById('appPasscodeCancelV05423').onclick = function(){ ov.remove(); if (isVerify && status.mode === 'required') return; onDone(false); };
+    document.getElementById('appPasscodeGoV05423').onclick = function(){
+      var pin = readMaskedPinInputV05418DF(input);
+      var pin2 = confirmInput ? readMaskedPinInputV05418DF(confirmInput) : pin;
+      if (pin.length !== 4) { msg.style.color = '#b91c1c'; msg.textContent = 'Enter a 4 digit passcode.'; return; }
+      if (!isVerify && !isDisable && pin !== pin2) { msg.style.color = '#b91c1c'; msg.textContent = 'Passcodes do not match.'; return; }
+      msg.style.color = '#64748b'; msg.textContent = isVerify ? 'Checking...' : (isDisable ? 'Disabling...' : 'Saving...');
+      fetch(isVerify ? '/api/v05422/passcode/verify' : (isDisable ? '/api/v05422/passcode/disable' : '/api/v05422/passcode/set'), { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ school: pairing.school, staffName: pairing.staffName, staffToken: pairing.staffToken, pin: pin }) })
+        .then(function(r){ return r.json().then(function(x){ if(!r.ok || x.ok === false) throw new Error(x.error || 'Passcode failed'); return x; }); })
+        .then(function(){ ov.remove(); refreshAppPasscodeSettingsRow(pairing); onDone(true); })
+        .catch(function(e){ msg.style.color = '#b91c1c'; msg.textContent = e.message || 'Passcode failed.'; });
+    };
+  }
+
+  function openAppPasscodeSettings() {
+    var pairing = pairingData || loadPairing();
+    if (!pairing) return;
+    fetchAppPasscodeStatus(pairing).then(function(j){
+      if (!j || j.policyMode === 'disabled' || j.mode === 'disabled') return;
+      showAppPasscodePanel(pairing, j, 'set', function(){ refreshAppPasscodeSettingsRow(pairing); });
+    }).catch(function(e){ alert(e.message || 'Could not open passcode settings.'); });
+  }
+  window.openAppPasscodeSettings = openAppPasscodeSettings;
+
+  function enforceAppPasscode(pairing, onReady) {
+    onReady = onReady || function(){};
+    if (!pairing || !pairing.school || !pairing.staffName || !pairing.staffToken) { onReady(); return; }
+    fetchAppPasscodeStatus(pairing)
+      .then(function(j){
+        if (!j || j.ok === false || j.mode !== 'required') { onReady(); return; }
+        showAppPasscodePanel(pairing, j, j.hasPasscode ? 'verify' : 'set', function(done){ if (done !== false) onReady(); });
+      }).catch(function(){ onReady(); });
+  }
+
+  function boot() {
+    captureAutoPairFromUrl();
+    var pendingAutoPair = loadPendingAutoPair();
+    var isStandalone = isStandaloneApp();
+    var pairing = loadPairing();
+    if (pairing && pairing.staffName && pairing.staffToken) {
+      pairingData = pairing;
+      renderPairedScreens(pairing);
+      showScreen('schedules');
+      enforceAppPasscode(pairing, function(){ loadAvailableViewsAndOpen(); checkPushHealth(); checkUnreadCount(); });
+      return;
+    }
+    if (pendingAutoPair) {
+      var pairFooter = document.getElementById('pairFooter');
+      if (pairFooter) pairFooter.textContent = 'Checking app setup...';
+      showScreen('pair');
+      validatePendingAutoPair(pendingAutoPair).then(function(){
+        showInstallInstructions();
+      }).catch(function(e){
+        showManualPairForInvalidSetup((e && e.message) || 'This app setup QR is no longer valid. Generate a pairing code from your Staff Portal.');
+      });
+      return;
+    }
+    if (!isStandalone) { showInstallInstructions(); return; }
+    showScreen('pair');
+  }
+
+  // ---- push subscription health check ----
+  // Runs on every app launch while paired. Two things this catches: (1) iOS can silently
+  // drop or rotate a push subscription with zero visible symptom (flagged early in this
+  // project) -- this detects that and re-subscribes automatically when possible, instead of
+  // the staff member finding out only when an emergency alert never arrives. (2) if an admin
+  // has revoked this device (see Staff Manager / Communication Manager), the server rejects
+  // the heartbeat with revoked:true -- this clears local pairing and returns to the pairing
+  // screen with a clear explanation, rather than the app silently failing in the background.
+  function setNotifBanner(state, message) {
+    var el = document.getElementById('notifBanner');
+    if (!el) return;
+    if (!state) { el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    el.className = 'notif-banner ' + state;
+    document.getElementById('notifBannerText').textContent = message;
+  }
+
+  function checkPushHealth() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.ready.then(function(reg) {
+      return reg.pushManager.getSubscription().then(function(sub) {
+        if (sub) { sendHeartbeat(sub); return; }
+        // No live subscription -- if permission is still granted, this is iOS having quietly
+        // dropped it; try to silently re-subscribe (no new permission prompt needed since
+        // permission is already granted). If permission was denied/reset, we can't recover
+        // without the user re-enabling it, so just surface that clearly instead.
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+          setNotifBanner('warn', 'Notifications are off for this app. Enable them in Profile to receive coverage alerts.');
+          updateNotifStatusDisplay(false);
+          return;
+        }
+        fetch('/api/v05418y/vapid-public-key').then(function(r){ return r.json(); }).then(function(j){
+          var key = (j && j.publicKey) || '';
+          if (!key) return;
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) }).then(function(newSub){
+            sendHeartbeat(newSub);
+          });
+        }).catch(function(){
+          setNotifBanner('warn', 'Notifications stopped working on this device. Try re-enabling them in Profile.');
+          updateNotifStatusDisplay(false);
+        });
+      });
+    }).catch(function(){});
+  }
+
+  function sendHeartbeat(subscription) {
+    if (!pairingData) return;
+    fetch('/api/v05418y/app-devices/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken, subscription: subscription || null, platform: navigator.platform || 'web', clientDeviceId: getClientDeviceId() })
+    }).then(function(r){
+      return r.json().then(function(j){ return { ok: r.ok, body: j }; });
+    }).then(function(res){
+      if (res.body && res.body.revoked) {
+        clearPairing();
+        pairingData = null;
+        showScreen('pair');
+        document.getElementById('pairError').textContent = 'This device was unpaired by an administrator. Enter a new code from your Staff Portal to pair again.';
+        return;
+      }
+      if (res.ok) { setNotifBanner(null); updateNotifStatusDisplay(true); }
+    }).catch(function(){ /* transient network issue -- don't alarm the user for one failed heartbeat */ });
+  }
+
+  function updateNotifStatusDisplay(healthy) {
+    var el = document.getElementById('profileNotifStatus');
+    if (el) el.textContent = healthy ? 'On' : 'Not enabled';
+  }
+
+  function reEnableNotifications() {
+    var btn = document.getElementById('reEnableNotifBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enabling…'; }
+    getPushSubscription().then(function(sub) {
+      sendHeartbeat(sub);
+      if (btn) { btn.disabled = false; btn.textContent = 'Re-enable notifications'; }
+    }).catch(function(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Re-enable notifications'; }
+      setNotifBanner('warn', e.message || 'Could not enable notifications.');
+    });
+  }
+
+  // ---- OTP input behavior ----
+  var otpBoxes = Array.prototype.slice.call(document.querySelectorAll('.otp-box'));
+  var pairBtn = document.getElementById('pairBtn');
+  otpBoxes.forEach(function(box, i){
+    box.addEventListener('input', function(){
+      box.value = box.value.replace(/[^0-9]/g, '');
+      box.classList.toggle('filled', !!box.value);
+      if (box.value && otpBoxes[i+1]) otpBoxes[i+1].focus();
+      checkOtpComplete();
+    });
+    box.addEventListener('keydown', function(e){
+      if (e.key === 'Backspace' && !box.value && otpBoxes[i-1]) otpBoxes[i-1].focus();
+    });
+  });
+  function checkOtpComplete() {
+    pairBtn.disabled = !otpBoxes.every(function(b){ return b.value.length === 1; });
+  }
+
+  // ---- real Web Push subscription ----
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+  function getPushSubscription() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return Promise.reject(new Error('This browser does not support push notifications.'));
+    }
+    return fetch('/api/v05418y/vapid-public-key').then(function(r){ return r.json(); }).then(function(j){
+      var key = (j && j.publicKey) || '';
+      if (!key) throw new Error('Push is not configured on the server yet. Pairing will still work.');
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.getSubscription().then(function(existing){
+          if (existing) return existing;
+          return Notification.requestPermission().then(function(permission){
+            if (permission !== 'granted') throw new Error('Notification permission was not granted. You can still pair.');
+            return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+          });
+        });
+      });
+    });
+  }
+
+  function tryPair() {
+    var errEl = document.getElementById('pairError');
+    errEl.textContent = '';
+    pairBtn.disabled = true; pairBtn.textContent = 'Pairing…';
+    var code = otpBoxes.map(function(b){ return b.value; }).join('');
+
+    getPushSubscription().catch(function(pushErr){
+      errEl.textContent = pushErr.message || 'Could not enable notifications.';
+      return null;
+    }).then(function(subscription){
+      return fetch('/api/v05418y/app-pairing/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code, subscription: subscription || null, platform: navigator.platform || 'web', clientDeviceId: getClientDeviceId() })
+      });
+    }).then(function(r){
+      return r.json().then(function(j){ if (!r.ok || j.ok === false) throw new Error((j && j.error) || ('HTTP ' + r.status)); return j; });
+    }).then(function(j){
+      var pairing = { staffName: j.staffName, school: j.school, schoolName: j.schoolName || j.school, staffToken: j.staffToken, pairedAt: new Date().toISOString() };
+      savePairing(pairing);
+      pairingData = pairing;
+      renderPairedScreens(pairing);
+      showScreen('schedules');
+      loadAvailableViewsAndOpen();
+    }).catch(function(e){
+      pairBtn.disabled = false; pairBtn.textContent = 'Pair device';
+      errEl.textContent = e.message || 'Could not pair this device.';
+    });
+  }
+
+  function unpair() {
+    clearPairing();
+    pairingData = null;
+    viewCache = {};
+    otpBoxes.forEach(function(b){ b.value=''; b.classList.remove('filled'); });
+    checkOtpComplete();
+    pairBtn.textContent = 'Pair device';
+    showScreen('pair');
+  }
+
+  // ---- absence form ----
+  document.getElementById('absMultiDay').addEventListener('change', function(){
+    var multi = this.checked;
+    document.getElementById('absEndRow').style.display = multi ? 'block' : 'none';
+    document.getElementById('absDayPartRow').style.display = multi ? 'none' : 'block';
+    if (multi) document.getElementById('absPartialFields').classList.remove('show');
+  });
+  document.getElementById('absDayPart').addEventListener('change', function(){
+    document.getElementById('absPartialFields').classList.toggle('show', this.value === 'partial');
+  });
+  (function(){
+    var today = new Date().toISOString().slice(0, 10);
+    document.getElementById('absStart').value = today;
+  })();
+
+  function submitAbsence() {
+    var msg = document.getElementById('absenceMsg');
+    msg.className = ''; msg.textContent = '';
+    var multi = document.getElementById('absMultiDay').checked;
+    var start = document.getElementById('absStart').value;
+    var end = multi ? document.getElementById('absEnd').value : start;
+    var dayPart = multi ? 'full' : document.getElementById('absDayPart').value;
+    var reason = document.getElementById('absReason').value;
+    if (!start) { msg.className = 'err'; msg.textContent = 'Choose the absence date.'; return; }
+    if (multi && !end) { msg.className = 'err'; msg.textContent = 'Choose the last day.'; return; }
+    if (!reason) { msg.className = 'err'; msg.textContent = 'Choose a reason for absence.'; return; }
+    var btn = document.getElementById('absSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    authedFetch('/api/v05418y/report-absence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        school: pairingData.school, staffName: pairingData.staffName, staffToken: pairingData.staffToken,
+        startDate: start, endDate: end, dayPart: dayPart, reason: reason,
+        arrivalTime: document.getElementById('absArrival').value,
+        leaveTime: document.getElementById('absLeave').value,
+        notes: document.getElementById('absNotes').value
+      })
+    }).then(function(j){
+      btn.disabled = false; btn.textContent = 'Submit absence report';
+      msg.className = 'ok'; msg.textContent = j.message || 'Absence report submitted.';
+      document.getElementById('absNotes').value = '';
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = 'Submit absence report';
+      msg.className = 'err'; msg.textContent = e.message || 'Could not submit absence report.';
+    });
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('service-worker.js').catch(function(){});
+    });
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && pairingData) { checkPushHealth(); checkUnreadCount(); }
+  });
+
+  setInterval(function(){
+    if (!document.hidden && pairingData) checkUnreadCount();
+  }, 60000);
+
+  boot();
+</script>
+
+</body>
+</html>
