@@ -42,16 +42,17 @@ rather than crashing. Nothing else in the app is affected either way.
 
 **2. Set VAPID keys.** These are what let your server prove to Apple's/Google's push
 infrastructure that it's allowed to send to a given subscription — not an Apple Developer
-account, not a paid service, just a keypair your server holds.
+account, not a paid service, just a keypair your server holds. Generate your own (see below)
+rather than reusing an example — reusing a shared keypair across different deployments defeats
+the purpose of VAPID, since it's meant to identify one specific server.
 
-For local testing right now, a **real, valid keypair** (generated in this environment,
-safe to use for development — generate your own for actual production use):
+Your `.env` should end up with something in this shape:
 ```
-VAPID_PUBLIC_KEY=BPQz4Tk0joBUGID9MJZVWRkJ7WxAjjScmKs70kcwRg65YH7YgWoNae9bVMV7iiwilw1K_hvL85ULYxF3S4vwyfE
-VAPID_PRIVATE_KEY=k5AS_izR4XPwm1y9_3HOtfe1KgutgoIKdLtDPlyrnJE
+VAPID_PUBLIC_KEY=<your generated public key>
+VAPID_PRIVATE_KEY=<your generated private key>
 VAPID_SUBJECT=mailto:you@example.org
 ```
-To generate your own for production, after `npm install`:
+To generate your own, after `npm install`:
 ```bash
 npx web-push generate-vapid-keys
 ```
